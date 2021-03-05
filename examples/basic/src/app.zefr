@@ -1,0 +1,12 @@
+<go-script>
+
+  type App struct {}
+
+</go-script>
+
+<template>
+  <zephyr-view />
+</template>
+
+<style>
+</style>
