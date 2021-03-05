@@ -1,6 +1,7 @@
 package zephyr
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 
@@ -33,7 +34,7 @@ type ComputedFunc func() interface{}
 
 type BaseComponent struct {
 	data    map[string]ReactiveData
-	methods map[string]ReactiveData
+	methods map[string]interface{}
 
 	// ComponentListener is notified of any changes
 	// to the variables it is listening to
@@ -70,21 +71,17 @@ func (c *BaseComponent) DefineData(dataDefinitions map[string]interface{}) {
 	}
 }
 
+// DefineMethods initializes and creates the inputed methods
 func (c *BaseComponent) DefineMethods(methodDefinitions map[string]interface{}) {
-	if c.data == nil {
-		c.data = make(map[string]ReactiveData)
+	if c.methods == nil {
+		c.methods = map[string]interface{}{}
 	}
 	for key, val := range methodDefinitions {
-		switch val.(type) {
-		case func() interface{}:
-			c.Set(key, ComputedFunc(val.(func() interface{})))
-		default:
-			c.Set(key, val)
-		}
+		c.SetMethod(key, val)
 	}
 }
 
-func recurConvert(d interface{}) string {
+func recurToString(d interface{}) string {
 	switch d.(type) {
 	case string:
 		return d.(string)
@@ -93,7 +90,7 @@ func recurConvert(d interface{}) string {
 	case uint, uint8, uint16, uint32, uint64:
 		return strconv.Itoa(int(d.(uint)))
 	case ComputedFunc:
-		return recurConvert(d.(ComputedFunc)())
+		return recurToString(d.(ComputedFunc)())
 	}
 	return ""
 
@@ -102,6 +99,9 @@ func recurConvert(d interface{}) string {
 // Get is the public function used to get values from the
 // components data
 func (c *BaseComponent) Get(key string) interface{} {
+	if c.data == nil {
+		c.data = make(map[string]ReactiveData)
+	}
 	if rd, ok := c.data[key]; ok {
 		rd.Register(*c.Listener)
 		c.data[key] = rd
@@ -118,28 +118,39 @@ func (c *BaseComponent) Get(key string) interface{} {
 }
 
 func (c *BaseComponent) GetStr(key string) string {
+	if c.data == nil {
+		c.data = make(map[string]ReactiveData)
+	}
 	if rd, ok := c.data[key]; ok {
 		rd.Register(*c.Listener)
 		data := rd.Data
 		// immutability smh
 		c.data[key] = rd
-		return recurConvert(data)
+		return recurToString(data)
 	}
 	return ""
 }
 
 func (c *BaseComponent) Set(key string, data interface{}) interface{} {
+	if c.data == nil {
+		c.data = make(map[string]ReactiveData)
+	}
 	var newData ReactiveData
 	if _, ok := c.data[key]; ok {
 		// change to switch
-		if reflect.TypeOf(data).Name() != c.data[key].Type {
-			panic("Type mismatch!")
+		if reflect.TypeOf(data).Name() != c.data[key].Type || reflect.TypeOf(data).Kind() == reflect.Func {
+			panic("Type mismatch or computed redefinition")
 		}
 		// if _, ok := data.(c.data[key].Type)
 		newData = c.data[key]
 		newData.Data = data
 	} else {
-		newData = newReactiveData(reflect.TypeOf(data).Name(), data)
+		switch data.(type) {
+		case func() interface{}, func():
+			newData = newReactiveData("ComputedFunc", ComputedFunc(data.(func() interface{})))
+		default:
+			newData = newReactiveData(reflect.TypeOf(data).Name(), data)
+		}
 	}
 
 	c.data[key] = newData
@@ -148,6 +159,41 @@ func (c *BaseComponent) Set(key string, data interface{}) interface{} {
 	c.data[key].Notify()
 
 	return newData.Data
+}
+
+func (c *BaseComponent) GetMethod(key string) func(args ...interface{}) interface{} {
+	if c.methods == nil {
+		c.methods = make(map[string]interface{})
+	}
+	if f, ok := c.methods[key]; ok {
+		switch f.(type) {
+		case func(), func(...interface{}):
+			return func(args ...interface{}) interface{} {
+				f.(func(...interface{}))(args)
+				return nil
+			}
+		case func() interface{}, func(...interface{}) interface{}:
+			return f.(func(...interface{}) interface{})
+		default:
+			fmt.Println(reflect.TypeOf(f))
+			return nil
+		}
+	}
+	return nil
+}
+
+func (c *BaseComponent) SetMethod(key string, data interface{}) {
+	if c.methods == nil {
+		c.methods = make(map[string]interface{})
+	}
+	if _, ok := c.data[key]; ok {
+		panic("Method redefined!")
+	}
+
+	c.methods[key] = data
+
+	// notify of update
+	// c.methods[key].Notify()
 }
 
 // func DefineMethods() map[string]MethodFunc {

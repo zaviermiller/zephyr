@@ -10,6 +10,12 @@ import (
 type RootComponent struct {
 	// Extend Component struct
 	*zephyr.BaseComponent
+
+	message string
+}
+
+func (rc *RootComponent) increaseCounter() {
+	rc.Set("counter", rc.Get("counter").(int)+1)
 }
 
 func (rc *RootComponent) Init() {
@@ -22,14 +28,12 @@ func (rc *RootComponent) Init() {
 	rc.DefineData(map[string]interface{}{
 		"message": "Hello Zephyr",
 		"counter": 0,
-		"computedProp": func() string {
+		"messageComputed": func() interface{} {
 			return rc.Get("message").(string) + " and world!"
 		},
 	})
 
-	// rc.Methods = zephyr.DefineMethods({
-	//   "methodOne": rc.methodOne
-	// })
+	// rc.BindData("message", &bc.message)
 }
 
 // Render is a function that must be implemented by all
@@ -38,14 +42,12 @@ func (rc *RootComponent) Init() {
 func (rc *RootComponent) Render() vdom.VNode {
 	return vdom.BuildElem("div", nil, []vdom.VNode{
 		vdom.BuildElem("button", map[string]interface{}{
-			"onclick": func() {
-				rc.Set("counter", rc.Get("counter").(int)+1)
-			},
+			"onclick": rc.increaseCounter,
 		}, []vdom.VNode{
 			vdom.BuildText("Click me"),
 		}),
 		vdom.BuildElem("span", nil, []vdom.VNode{vdom.BuildText(rc.GetStr("counter"))}),
-		vdom.BuildElem("h3", nil, []vdom.VNode{vdom.BuildText(rc.Get("computedProp").(string))}),
+		vdom.BuildElem("h3", nil, []vdom.VNode{vdom.BuildText(rc.Get("messageComputed").(string))}),
 		// vdom.BuildElem("input", map[string]interface{}{"type": "text", "onchange": func(el js.V	alue) { rc.Set("message", el.Get("value").String()) }}, nil)
 	})
 }
