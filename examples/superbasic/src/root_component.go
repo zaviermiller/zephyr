@@ -23,7 +23,7 @@ func (rc *RootComponent) Init() {
 		"message": "Hello Zephyr",
 		"counter": 0,
 		"computedProp": func() string {
-			return rc.Get("message").(string) + " And hello world!"
+			return rc.Get("message").(string) + " and world!"
 		},
 	})
 
@@ -37,7 +37,11 @@ func (rc *RootComponent) Init() {
 // component.
 func (rc *RootComponent) Render() vdom.VNode {
 	return vdom.BuildElem("div", nil, []vdom.VNode{
-		vdom.BuildElem("button", map[string]interface{}{"onclick": func() { rc.Set("counter", rc.Get("counter").(int)+1) }}, []vdom.VNode{
+		vdom.BuildElem("button", map[string]interface{}{
+			"onclick": func() {
+				rc.Set("counter", rc.Get("counter").(int)+1)
+			},
+		}, []vdom.VNode{
 			vdom.BuildText("Click me"),
 		}),
 		vdom.BuildElem("span", nil, []vdom.VNode{vdom.BuildText(rc.GetStr("counter"))}),

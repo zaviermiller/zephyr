@@ -1,9 +1,7 @@
 package zephyr
 
 import (
-	"fmt"
 	"reflect"
-	"runtime"
 	"strconv"
 
 	"github.com/zaviermiller/zephyr/pkg/core/vdom"
@@ -29,16 +27,13 @@ type Component interface {
 // HookFuncs should not take or return anything
 type HookFunc func()
 
-// MethodFunc may manipulate component state
-type MethodFunc func(c *Component, params ...interface{})
-
 // This probably will only allow one return value, is there
 // a use case where this doesnt work??
 type ComputedFunc func() interface{}
 
 type BaseComponent struct {
 	data    map[string]ReactiveData
-	methods map[string]MethodFunc
+	methods map[string]ReactiveData
 
 	// ComponentListener is notified of any changes
 	// to the variables it is listening to
@@ -64,11 +59,22 @@ func (c *BaseComponent) getBase() *BaseComponent {
 	return c
 }
 
+// DefineData is a wrapper that initializes and creates the components
+// data map from an input
 func (c *BaseComponent) DefineData(dataDefinitions map[string]interface{}) {
 	if c.data == nil {
 		c.data = make(map[string]ReactiveData)
 	}
 	for key, val := range dataDefinitions {
+		c.Set(key, val)
+	}
+}
+
+func (c *BaseComponent) DefineMethods(methodDefinitions map[string]interface{}) {
+	if c.data == nil {
+		c.data = make(map[string]ReactiveData)
+	}
+	for key, val := range methodDefinitions {
 		switch val.(type) {
 		case func() interface{}:
 			c.Set(key, ComputedFunc(val.(func() interface{})))
@@ -93,30 +99,20 @@ func recurConvert(d interface{}) string {
 
 }
 
-// Get is the
+// Get is the public function used to get values from the
+// components data
 func (c *BaseComponent) Get(key string) interface{} {
-	pc, _, _, ok := runtime.Caller(1)
-	details := runtime.FuncForPC(pc)
-	if ok && details != nil {
-		fmt.Printf("called from %s\n", details.Name())
-	}
-
 	if rd, ok := c.data[key]; ok {
 		rd.Register(*c.Listener)
 		c.data[key] = rd
 
 		switch rd.Data.(type) {
 		// rip no generics
-		case func() string:
-			return rd.Data.(func() string)()
-		case func() int:
-			return rd.Data.(func() int)()
-		case func() interface{}:
-			return rd.Data.(func() interface{})()
+		case ComputedFunc:
+			return rd.Data.(ComputedFunc)()
 		default:
-			fmt.Println(reflect.TypeOf(rd.Data))
+			return rd.Data
 		}
-		return rd.Data
 	}
 	return nil
 }

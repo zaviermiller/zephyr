@@ -8,10 +8,18 @@ import (
 	"github.com/zaviermiller/zephyr/pkg/core/vdom"
 )
 
+// zephyrJS is a struct representing the js Zephyr var
+type zephyrJS struct {
+	rootComponent zephyr.Component
+	anchor        string
+}
+
 type ZephyrApp struct {
 	// Anchor is a JS Value representing an HTMLElement
 	// object.
 	Anchor js.Value
+
+	js zephyrJS
 
 	// ComponentInstance is the instance of the root component
 	ComponentInstance zephyr.Component
@@ -24,9 +32,7 @@ type ZephyrApp struct {
 func InitApp(rootInstance zephyr.Component) ZephyrApp {
 	app := ZephyrApp{ComponentInstance: rootInstance, VDomRoot: nil}
 
-	js.Global().Set("Zephyr", map[string]interface{}{
-		"components": map[string]interface{}{},
-	})
+	js.Global().Set("Zephyr", map[string]interface{}{})
 
 	app.ComponentInstance.Init()
 
@@ -43,6 +49,7 @@ func (z *ZephyrApp) Mount(querySelector string) {
 	// Anchor the app to the given element selector
 	z.Anchor = GetDocument().QuerySelector(querySelector)
 	js.Global().Get("Zephyr").Set("anchor", z.Anchor)
+	// js.Global().Get("Zephyr").Set("rootComponent", js.ValueOf(z.ComponentInstanc))
 
 	// create listener for component changes
 	ListenerFunc := func() {
