@@ -1,8 +1,6 @@
 package main
 
 import (
-	"syscall/js"
-
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
 	"github.com/zaviermiller/zephyr/pkg/core/vdom"
 )
@@ -37,9 +35,12 @@ func (rc *RootComponent) Init() {
 func (rc *RootComponent) Render() vdom.VNode {
 	return vdom.BuildElem("div", nil, []vdom.VNode{
 		vdom.BuildElem("button", map[string]interface{}{"onclick": func() { rc.Set("counter", rc.Get("counter").(int)+1) }}, []vdom.VNode{
-			vdom.BuildText("Click me")}), vdom.BuildElem("span", nil, []vdom.VNode{vdom.BuildText(rc.GetStr("counter"))}),
+			vdom.BuildText("Click me"),
+		}),
+		vdom.BuildElem("span", nil, []vdom.VNode{vdom.BuildText(rc.GetStr("counter"))}),
 		vdom.BuildElem("h3", nil, []vdom.VNode{vdom.BuildText(rc.Get("message").(string))}),
-		vdom.BuildElem("input", map[string]interface{}{"type": "text", "onchange": func(el js.Value) { rc.Set("message", el.Get("value").String()) }}, nil)})
+		// vdom.BuildElem("input", map[string]interface{}{"type": "text", "onchange": func(el js.Value) { rc.Set("message", el.Get("value").String()) }}, nil)
+	})
 }
 
 // ac.Set("counter", 0)

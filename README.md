@@ -1,3 +1,3 @@
 # Zephyr
 
-Lets get some stuff in here at some point. Need to explain motivation and stuff
+Currently just a proof of concept, trying to figure out if this will work well.
