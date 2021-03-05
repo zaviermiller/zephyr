@@ -1,7 +1,9 @@
 package zephyr
 
 import (
+	"fmt"
 	"reflect"
+	"runtime"
 	"strconv"
 
 	"github.com/zaviermiller/zephyr/pkg/core/vdom"
@@ -32,12 +34,11 @@ type MethodFunc func(c *Component, params ...interface{})
 
 // This probably will only allow one return value, is there
 // a use case where this doesnt work??
-type ComputedFunc func(c *Component) interface{}
+type ComputedFunc func() interface{}
 
 type BaseComponent struct {
-	data     map[string]ReactiveData
-	methods  map[string]MethodFunc
-	computed map[string]ComputedFunc
+	data    map[string]ReactiveData
+	methods map[string]MethodFunc
 
 	// ComponentListener is notified of any changes
 	// to the variables it is listening to
@@ -68,15 +69,53 @@ func (c *BaseComponent) DefineData(dataDefinitions map[string]interface{}) {
 		c.data = make(map[string]ReactiveData)
 	}
 	for key, val := range dataDefinitions {
-		c.Set(key, val)
+		switch val.(type) {
+		case func() interface{}:
+			c.Set(key, ComputedFunc(val.(func() interface{})))
+		default:
+			c.Set(key, val)
+		}
 	}
+}
+
+func recurConvert(d interface{}) string {
+	switch d.(type) {
+	case string:
+		return d.(string)
+	case int, int8, int16, int32, int64:
+		return strconv.Itoa(d.(int))
+	case uint, uint8, uint16, uint32, uint64:
+		return strconv.Itoa(int(d.(uint)))
+	case ComputedFunc:
+		return recurConvert(d.(ComputedFunc)())
+	}
+	return ""
+
 }
 
 // Get is the
 func (c *BaseComponent) Get(key string) interface{} {
+	pc, _, _, ok := runtime.Caller(1)
+	details := runtime.FuncForPC(pc)
+	if ok && details != nil {
+		fmt.Printf("called from %s\n", details.Name())
+	}
+
 	if rd, ok := c.data[key]; ok {
 		rd.Register(*c.Listener)
 		c.data[key] = rd
+
+		switch rd.Data.(type) {
+		// rip no generics
+		case func() string:
+			return rd.Data.(func() string)()
+		case func() int:
+			return rd.Data.(func() int)()
+		case func() interface{}:
+			return rd.Data.(func() interface{})()
+		default:
+			fmt.Println(reflect.TypeOf(rd.Data))
+		}
 		return rd.Data
 	}
 	return nil
@@ -88,14 +127,7 @@ func (c *BaseComponent) GetStr(key string) string {
 		data := rd.Data
 		// immutability smh
 		c.data[key] = rd
-		switch data.(type) {
-		case string:
-			return data.(string)
-		case int, int8, int16, int32, int64:
-			return strconv.Itoa(data.(int))
-		case uint, uint8, uint16, uint32, uint64:
-			return strconv.Itoa(int(data.(uint)))
-		}
+		return recurConvert(data)
 	}
 	return ""
 }
@@ -103,9 +135,11 @@ func (c *BaseComponent) GetStr(key string) string {
 func (c *BaseComponent) Set(key string, data interface{}) interface{} {
 	var newData ReactiveData
 	if _, ok := c.data[key]; ok {
+		// change to switch
 		if reflect.TypeOf(data).Name() != c.data[key].Type {
 			panic("Type mismatch!")
 		}
+		// if _, ok := data.(c.data[key].Type)
 		newData = c.data[key]
 		newData.Data = data
 	} else {

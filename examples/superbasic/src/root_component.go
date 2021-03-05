@@ -22,6 +22,9 @@ func (rc *RootComponent) Init() {
 	rc.DefineData(map[string]interface{}{
 		"message": "Hello Zephyr",
 		"counter": 0,
+		"computedProp": func() string {
+			return rc.Get("message").(string) + " And hello world!"
+		},
 	})
 
 	// rc.Methods = zephyr.DefineMethods({
@@ -38,8 +41,8 @@ func (rc *RootComponent) Render() vdom.VNode {
 			vdom.BuildText("Click me"),
 		}),
 		vdom.BuildElem("span", nil, []vdom.VNode{vdom.BuildText(rc.GetStr("counter"))}),
-		vdom.BuildElem("h3", nil, []vdom.VNode{vdom.BuildText(rc.Get("message").(string))}),
-		// vdom.BuildElem("input", map[string]interface{}{"type": "text", "onchange": func(el js.Value) { rc.Set("message", el.Get("value").String()) }}, nil)
+		vdom.BuildElem("h3", nil, []vdom.VNode{vdom.BuildText(rc.Get("computedProp").(string))}),
+		// vdom.BuildElem("input", map[string]interface{}{"type": "text", "onchange": func(el js.V	alue) { rc.Set("message", el.Get("value").String()) }}, nil)
 	})
 }
 
