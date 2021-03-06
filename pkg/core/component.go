@@ -13,6 +13,8 @@ type Component interface {
 
 	// Public API
 	Init()
+	// this makes the core package coupled to the vdom package
+	// change if possible - or not??
 	Render() vdom.VNode
 
 	// Base functions
@@ -73,10 +75,10 @@ func NewComponent(c Component) Component {
 
 	// create the id so it can be found again
 	componentId := strings.Split(reflect.TypeOf(c).String(), ".")
-	if len(componentId) > 2 {
-		fmt.Println(componentId)
+	if len(componentId) != 2 {
+		// fmt.Println(componentId)
 	} else {
-		base.interalID = componentId[0]
+		base.interalID = componentId[1]
 	}
 
 	return c
@@ -185,7 +187,7 @@ func (c *BaseComponent) Set(key string, data interface{}) interface{} {
 		}
 	}
 
-	fmt.Println("set: ", key)
+	// fmt.Println("set: ", key)
 
 	c.data[key] = newData
 

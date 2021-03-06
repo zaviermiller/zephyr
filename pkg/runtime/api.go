@@ -2,6 +2,8 @@ package runtime
 
 // Only place the runtime should be coupled to the core package?
 import (
+	"encoding/json"
+	"fmt"
 	"syscall/js"
 
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
@@ -19,25 +21,34 @@ type ZephyrApp struct {
 	// object.
 	Anchor js.Value
 
+	// might create a prototype on the root element, this will
+	// contain its data
 	js zephyrJS
 
 	// ComponentInstance is the instance of the root component
-	ComponentInstance zephyr.Component
+	RootComponent zephyr.Component
 
 	// VDomRoot is the root VNode for the virtual DOM.
-	VDomRoot *vdom.VNode
 }
 
 // would just pass the struct type into the array but...
-func InitApp(rootInstance zephyr.Component) ZephyrApp {
-	app := ZephyrApp{ComponentInstance: rootInstance, VDomRoot: nil}
+func InitApp(rootInstance zephyr.Component) *ZephyrApp {
+	app := &ZephyrApp{RootComponent: rootInstance}
 
 	js.Global().Set("Zephyr", map[string]interface{}{})
 
 	// init the app component which kicks off the rest
-	app.ComponentInstance.Init()
+	app.RootComponent.Init()
 
-	// instantiate component and its child components
+	// create listener for component changes
+	ListenerFunc := func() {
+		vdom := app.RootComponent.Render()
+		fmt.Println("update detected! new vdom: " + func() string { b, _ := json.Marshal(vdom); return string(b) }())
+		app.CompareAndUpdateDOM(&vdom)
+	}
+
+	// move?
+	app.RootComponent.CreateListener(zephyr.ComponentListener{ID: "rootListener", Updater: ListenerFunc})
 
 	return app
 }
@@ -48,28 +59,17 @@ func InitApp(rootInstance zephyr.Component) ZephyrApp {
 func (z *ZephyrApp) Mount(querySelector string) {
 
 	// Anchor the app to the given element selector
-	z.Anchor = GetDocument().QuerySelector(querySelector)
+	z.Anchor = vdom.GetDocument().QuerySelector(querySelector)
 	js.Global().Get("Zephyr").Set("anchor", z.Anchor)
 	// js.Global().Get("Zephyr").Set("rootComponent", js.ValueOf(z.ComponentInstanc))
 
-	// create listener for component changes
-	ListenerFunc := func() {
-		vdom := z.ComponentInstance.Render()
-		z.UpdateDOM(&vdom)
-	}
+	newDom := z.RootComponent.Render()
 
-	z.ComponentInstance.CreateListener(zephyr.ComponentListener{ID: "rootListener", Updater: ListenerFunc})
-
-	newDom := z.ComponentInstance.Render()
-
-	z.UpdateDOM(&newDom)
+	z.CompareAndUpdateDOM(&newDom)
 
 	// call on mount?
 }
 
-func (z *ZephyrApp) UpdateDOM(newVDom *vdom.VNode) {
-	// if z.VDomRoot == nil {
-	z.VDomRoot = newVDom
-	// }
-	SetInnerHTML(z.Anchor, z.VDomRoot.RenderHTML())
+func (z *ZephyrApp) CompareAndUpdateDOM(newVDom *vdom.VNode) {
+	vdom.SetInnerHTML(z.Anchor, newVDom.RenderHTML())
 }

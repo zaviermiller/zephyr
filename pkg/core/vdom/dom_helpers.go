@@ -5,7 +5,7 @@
 // and the WASM binary. These functions should not be run anywhere else. Hopefully
 // one day there is a semi/official DOM API for WASM, but for now, we have to use JS :(
 
-package runtime
+package vdom
 
 import (
 	"syscall/js"
@@ -27,5 +27,6 @@ func (d Document) QuerySelector(selector string) js.Value {
 }
 
 func SetInnerHTML(el js.Value, content string) {
+	js.Global().Get("console").Call("dir", el)
 	el.Set("innerHTML", content)
 }

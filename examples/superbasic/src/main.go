@@ -2,13 +2,13 @@ package main
 
 import (
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
-	"github.com/zaviermiller/zephyr/pkg/core/runtime"
+	"github.com/zaviermiller/zephyr/pkg/runtime"
 )
 
 // entry-point for Zephyr apps
 func main() {
-	Root := zephyr.NewComponent(&RootComponent{&zephyr.BaseComponent{}})
 	// ideally we wouldnt need to initialize a variable here, but there is not other way :(
+	Root := zephyr.NewComponent(&RootComponent{&zephyr.BaseComponent{}})
 	zefr := runtime.InitApp(Root) // initialize plugins here??
 
 	// mount the zephyr app to an element on an HTML doc

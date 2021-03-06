@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strconv"
 	"syscall/js"
-	// "syscall/js"
 )
 
 type VNodeType int
@@ -40,7 +39,7 @@ type VNode struct {
 	// Attrs stores the attributes for the ZNode
 	Attrs ZephyrAttrs
 
-	// Component
+	// Component responsible for this vnode
 
 	// Children stores the ZNode children
 	Children []VNode
@@ -51,9 +50,19 @@ type VNode struct {
 	Comment bool
 }
 
+// the js part of this is very very temporary, in fact the whole function is
+// going to just try and build it up
 func (node *VNode) BuildAttrs(attrs map[string]interface{}) {
 	zAttrs := ZephyrAttrs{}
+	createdFuncs := map[string]string{}
+
 	for key, val := range attrs {
+		// dont redefine the funcs, silly zephyr!
+		if jsFunc, ok := createdFuncs[key]; ok {
+			zAttrs[key] = jsFunc
+			continue
+		}
+
 		switch val.(type) {
 
 		case string:
@@ -68,6 +77,7 @@ func (node *VNode) BuildAttrs(attrs map[string]interface{}) {
 					return nil
 				}))
 			zAttrs[key] = funcName + "()"
+			createdFuncs[key] = zAttrs[key]
 
 			// Most likely an event function
 		case func(js.Value):
@@ -79,6 +89,7 @@ func (node *VNode) BuildAttrs(attrs map[string]interface{}) {
 					return nil
 				}))
 			zAttrs[key] = funcName + "(this)"
+			createdFuncs[key] = zAttrs[key]
 		default:
 			fmt.Println(reflect.TypeOf(val))
 		}
