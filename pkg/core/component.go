@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/zaviermiller/zephyr/pkg/core/vdom"
 )
@@ -17,6 +18,7 @@ type Component interface {
 	// Base functions
 	Get(string) interface{}
 	Set(string, interface{}) interface{}
+	GetChildComponent(id string) Component
 
 	// internal use (maybe unnecessary)
 	CreateListener(ComponentListener)
@@ -33,8 +35,14 @@ type HookFunc func()
 type ComputedFunc func() interface{}
 
 type BaseComponent struct {
-	data    map[string]ReactiveData
-	methods map[string]interface{}
+	interalID string
+
+	props      map[string]ReactiveData
+	data       map[string]ReactiveData
+	methods    map[string]interface{}
+	components map[string]Component
+
+	parentComponent *BaseComponent
 
 	// ComponentListener is notified of any changes
 	// to the variables it is listening to
@@ -60,12 +68,38 @@ func (c *BaseComponent) getBase() *BaseComponent {
 	return c
 }
 
+func NewComponent(c Component) Component {
+	base := c.getBase()
+
+	// create the id so it can be found again
+	componentId := strings.Split(reflect.TypeOf(c).String(), ".")
+	if len(componentId) > 2 {
+		fmt.Println(componentId)
+	} else {
+		base.interalID = componentId[0]
+	}
+
+	return c
+
+}
+
+func (c *BaseComponent) RegisterComponents(components []Component) {
+	c.components = make(map[string]Component)
+	for _, child := range components {
+		onChildUpdate := func() {
+			child.getBase().parentComponent.Listener.Updater()
+		}
+		child.Init()
+		c.components[child.getBase().interalID] = child
+		child.getBase().parentComponent = c
+		child.CreateListener(ComponentListener{ID: child.getBase().interalID, Updater: onChildUpdate})
+	}
+}
+
 // DefineData is a wrapper that initializes and creates the components
 // data map from an input
 func (c *BaseComponent) DefineData(dataDefinitions map[string]interface{}) {
-	if c.data == nil {
-		c.data = make(map[string]ReactiveData)
-	}
+	c.data = make(map[string]ReactiveData)
 	for key, val := range dataDefinitions {
 		c.Set(key, val)
 	}
@@ -73,9 +107,7 @@ func (c *BaseComponent) DefineData(dataDefinitions map[string]interface{}) {
 
 // DefineMethods initializes and creates the inputed methods
 func (c *BaseComponent) DefineMethods(methodDefinitions map[string]interface{}) {
-	if c.methods == nil {
-		c.methods = map[string]interface{}{}
-	}
+	c.methods = map[string]interface{}{}
 	for key, val := range methodDefinitions {
 		c.SetMethod(key, val)
 	}
@@ -138,7 +170,7 @@ func (c *BaseComponent) Set(key string, data interface{}) interface{} {
 	var newData ReactiveData
 	if _, ok := c.data[key]; ok {
 		// change to switch
-		if reflect.TypeOf(data).Name() != c.data[key].Type || reflect.TypeOf(data).Kind() == reflect.Func {
+		if reflect.TypeOf(data).String() != c.data[key].Type || reflect.TypeOf(data).Kind() == reflect.Func {
 			panic("Type mismatch or computed redefinition")
 		}
 		// if _, ok := data.(c.data[key].Type)
@@ -149,9 +181,11 @@ func (c *BaseComponent) Set(key string, data interface{}) interface{} {
 		case func() interface{}, func():
 			newData = newReactiveData("ComputedFunc", ComputedFunc(data.(func() interface{})))
 		default:
-			newData = newReactiveData(reflect.TypeOf(data).Name(), data)
+			newData = newReactiveData(reflect.TypeOf(data).String(), data)
 		}
 	}
+
+	fmt.Println("set: ", key)
 
 	c.data[key] = newData
 
@@ -159,6 +193,10 @@ func (c *BaseComponent) Set(key string, data interface{}) interface{} {
 	c.data[key].Notify()
 
 	return newData.Data
+}
+
+func (c *BaseComponent) GetChildComponent(id string) Component {
+	return c.components[id]
 }
 
 func (c *BaseComponent) GetMethod(key string) func(args ...interface{}) interface{} {

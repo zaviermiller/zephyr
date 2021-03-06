@@ -34,6 +34,7 @@ func InitApp(rootInstance zephyr.Component) ZephyrApp {
 
 	js.Global().Set("Zephyr", map[string]interface{}{})
 
+	// init the app component which kicks off the rest
 	app.ComponentInstance.Init()
 
 	// instantiate component and its child components
