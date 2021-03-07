@@ -8,7 +8,7 @@ import (
 // entry-point for Zephyr apps
 func main() {
 	// ideally we wouldnt need to initialize a variable here, but there is not other way :(
-	Root := zephyr.NewComponent(&RootComponent{&zephyr.BaseComponent{}})
+	Root := zephyr.NewComponent(&RootComponent{&zephyr.BaseComponent{}, nil})
 	zefr := runtime.InitApp(Root) // initialize plugins here??
 
 	// mount the zephyr app to an element on an HTML doc

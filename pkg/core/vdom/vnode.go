@@ -1,10 +1,9 @@
 package vdom
 
 import (
-	"fmt"
-	"math/rand"
-	"reflect"
-	"strconv"
+	// unneeded
+	"math/rand" // unneeded
+	"strconv"   // unneeded
 	"syscall/js"
 )
 
@@ -40,6 +39,11 @@ type VNode struct {
 	Attrs ZephyrAttrs
 
 	// Component responsible for this vnode
+	Component interface{}
+
+	// Listener is alerted when data the node cares
+	// about is updated
+	// Listener *zephyr.VDomListener
 
 	// Children stores the ZNode children
 	Children []VNode
@@ -58,7 +62,7 @@ func (node *VNode) BuildAttrs(attrs map[string]interface{}) {
 
 	for key, val := range attrs {
 		// dont redefine the funcs, silly zephyr!
-		if jsFunc, ok := createdFuncs[key]; ok {
+		if jsFunc, ok := createdFuncs[node.Tag]; ok {
 			zAttrs[key] = jsFunc
 			continue
 		}
@@ -77,7 +81,8 @@ func (node *VNode) BuildAttrs(attrs map[string]interface{}) {
 					return nil
 				}))
 			zAttrs[key] = funcName + "()"
-			createdFuncs[key] = zAttrs[key]
+			createdFuncs[node.Tag] = zAttrs[key]
+			// fmt.Println(createdFuncs[node.Tag], key)
 
 			// Most likely an event function
 		case func(js.Value):
@@ -91,7 +96,7 @@ func (node *VNode) BuildAttrs(attrs map[string]interface{}) {
 			zAttrs[key] = funcName + "(this)"
 			createdFuncs[key] = zAttrs[key]
 		default:
-			fmt.Println(reflect.TypeOf(val))
+			// fmt.Println(reflect.TypeOf(val))
 		}
 	}
 	node.Attrs = zAttrs

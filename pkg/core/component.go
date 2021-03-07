@@ -1,7 +1,6 @@
 package zephyr
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -13,8 +12,6 @@ type Component interface {
 
 	// Public API
 	Init()
-	// this makes the core package coupled to the vdom package
-	// change if possible - or not??
 	Render() vdom.VNode
 
 	// Base functions
@@ -89,28 +86,37 @@ func (c *BaseComponent) RegisterComponents(components []Component) {
 	c.components = make(map[string]Component)
 	for _, child := range components {
 		onChildUpdate := func() {
-			child.getBase().parentComponent.Listener.Updater()
+			c.Listener.Updater()
 		}
 		child.Init()
 		c.components[child.getBase().interalID] = child
-		child.getBase().parentComponent = c
+		// child.getBase().parentComponent = c
 		child.CreateListener(ComponentListener{ID: child.getBase().interalID, Updater: onChildUpdate})
 	}
 }
 
 // DefineData is a wrapper that initializes and creates the components
 // data map from an input
-func (c *BaseComponent) DefineData(dataDefinitions map[string]interface{}) {
+func (c *BaseComponent) DefineProps(propDefs map[string]interface{}) {
+	c.props = make(map[string]ReactiveData)
+	for key, val := range propDefs {
+		c.Set(key, val)
+	}
+}
+
+// DefineData is a wrapper that initializes and creates the components
+// data map from an input
+func (c *BaseComponent) DefineData(dataDefs map[string]interface{}) {
 	c.data = make(map[string]ReactiveData)
-	for key, val := range dataDefinitions {
+	for key, val := range dataDefs {
 		c.Set(key, val)
 	}
 }
 
 // DefineMethods initializes and creates the inputed methods
-func (c *BaseComponent) DefineMethods(methodDefinitions map[string]interface{}) {
+func (c *BaseComponent) DefineMethods(methodDefs map[string]interface{}) {
 	c.methods = map[string]interface{}{}
-	for key, val := range methodDefinitions {
+	for key, val := range methodDefs {
 		c.SetMethod(key, val)
 	}
 }
@@ -215,7 +221,7 @@ func (c *BaseComponent) GetMethod(key string) func(args ...interface{}) interfac
 		case func() interface{}, func(...interface{}) interface{}:
 			return f.(func(...interface{}) interface{})
 		default:
-			fmt.Println(reflect.TypeOf(f))
+			// fmt.Println(reflect.TypeOf(f))
 			return nil
 		}
 	}

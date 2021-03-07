@@ -1,6 +1,13 @@
 <go-script>
+  import (
+    "src/components"
+  )
 
   type App struct {}
+
+  func Init() {
+    
+  }
 
 </go-script>
 

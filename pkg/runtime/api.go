@@ -2,8 +2,6 @@ package runtime
 
 // Only place the runtime should be coupled to the core package?
 import (
-	"encoding/json"
-	"fmt"
 	"syscall/js"
 
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
@@ -27,8 +25,6 @@ type ZephyrApp struct {
 
 	// ComponentInstance is the instance of the root component
 	RootComponent zephyr.Component
-
-	// VDomRoot is the root VNode for the virtual DOM.
 }
 
 // would just pass the struct type into the array but...
@@ -43,8 +39,8 @@ func InitApp(rootInstance zephyr.Component) *ZephyrApp {
 	// create listener for component changes
 	ListenerFunc := func() {
 		vdom := app.RootComponent.Render()
-		fmt.Println("update detected! new vdom: " + func() string { b, _ := json.Marshal(vdom); return string(b) }())
-		app.CompareAndUpdateDOM(&vdom)
+		// fmt.Println("update detected! new vdom: " + func() string { b, _ := json.Marshal(vdom); return string(b) }())
+		app.CompareAndUpdateDOM(vdom)
 	}
 
 	// move?
@@ -65,11 +61,11 @@ func (z *ZephyrApp) Mount(querySelector string) {
 
 	newDom := z.RootComponent.Render()
 
-	z.CompareAndUpdateDOM(&newDom)
+	z.CompareAndUpdateDOM(newDom)
 
 	// call on mount?
 }
 
-func (z *ZephyrApp) CompareAndUpdateDOM(newVDom *vdom.VNode) {
+func (z *ZephyrApp) CompareAndUpdateDOM(newVDom vdom.VNode) {
 	vdom.SetInnerHTML(z.Anchor, newVDom.RenderHTML())
 }

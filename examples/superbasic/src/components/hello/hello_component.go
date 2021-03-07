@@ -5,21 +5,18 @@ import (
 	"github.com/zaviermiller/zephyr/pkg/core/vdom"
 )
 
-type Props struct {
-	message string
-}
-
 type HelloComponent struct {
 	*zephyr.BaseComponent
-
-	//props????
-	// message string
 }
 
 func (c *HelloComponent) Init() {
-	c.DefineData(map[string]interface{}{
-		"greetee": "Zephyr",
+	// greetee := rc.ReactiveString("test")
+	// greetee := c.BindString("greetee") // func() *string
+
+	c.DefineProps(map[string]interface{}{
+		"recipient": nil,
 	})
+
 }
 
 func (c *HelloComponent) Render() vdom.VNode {
