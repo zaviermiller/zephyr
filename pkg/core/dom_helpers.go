@@ -5,7 +5,7 @@
 // and the WASM binary. These functions should not be run anywhere else. Hopefully
 // one day there is a semi/official DOM API for WASM, but for now, we have to use JS :(
 
-package vdom
+package zephyr
 
 import (
 	"syscall/js"

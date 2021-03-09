@@ -4,15 +4,13 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-
-	"github.com/zaviermiller/zephyr/pkg/core/vdom"
 )
 
 type Component interface {
 
 	// Public API
 	Init()
-	Render() vdom.VNode
+	Render() VNode
 
 	// Base functions
 	Get(string) interface{}
@@ -22,6 +20,13 @@ type Component interface {
 	// internal use (maybe unnecessary)
 	CreateListener(ComponentListener)
 	getBase() *BaseComponent
+}
+
+type Props interface {
+	//some method
+}
+
+type BaseProps struct {
 }
 
 // HookFunc is the type used for the hook functions
@@ -43,9 +48,9 @@ type BaseComponent struct {
 
 	parentComponent *BaseComponent
 
-	// ComponentListener is notified of any changes
+	// Listener is notified of any changes
 	// to the variables it is listening to
-	Listener *ComponentListener
+	Listener Listener
 
 	// Hooks =-=-=
 	// These functions will be called according to
@@ -86,12 +91,13 @@ func (c *BaseComponent) RegisterComponents(components []Component) {
 	c.components = make(map[string]Component)
 	for _, child := range components {
 		onChildUpdate := func() {
-			c.Listener.Updater()
+			c.Listener.Update()
 		}
+		child.CreateListener(ComponentListener{ID: child.getBase().interalID, Updater: onChildUpdate})
+		child.getBase().parentComponent = c
 		child.Init()
 		c.components[child.getBase().interalID] = child
 		// child.getBase().parentComponent = c
-		child.CreateListener(ComponentListener{ID: child.getBase().interalID, Updater: onChildUpdate})
 	}
 }
 
@@ -143,7 +149,7 @@ func (c *BaseComponent) Get(key string) interface{} {
 		c.data = make(map[string]ReactiveData)
 	}
 	if rd, ok := c.data[key]; ok {
-		rd.Register(*c.Listener)
+		rd.Register(c.Listener)
 		c.data[key] = rd
 
 		switch rd.Data.(type) {
@@ -162,7 +168,7 @@ func (c *BaseComponent) GetStr(key string) string {
 		c.data = make(map[string]ReactiveData)
 	}
 	if rd, ok := c.data[key]; ok {
-		rd.Register(*c.Listener)
+		rd.Register(c.Listener)
 		data := rd.Data
 		// immutability smh
 		c.data[key] = rd
@@ -187,7 +193,7 @@ func (c *BaseComponent) Set(key string, data interface{}) interface{} {
 	} else {
 		switch data.(type) {
 		case func() interface{}, func():
-			newData = newReactiveData("ComputedFunc", ComputedFunc(data.(func() interface{})))
+			newData = newReactiveData("Computed", ComputedFunc(data.(func() interface{})))
 		default:
 			newData = newReactiveData(reflect.TypeOf(data).String(), data)
 		}

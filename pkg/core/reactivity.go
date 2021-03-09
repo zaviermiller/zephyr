@@ -21,6 +21,13 @@ type ReactiveData struct {
 	Listeners []Listener
 }
 
+func NewRD(data interface{}) ReactiveData {
+	var rd ReactiveData
+	rd = ReactiveData{Data: data}
+
+	return rd
+}
+
 func newReactiveData(dataType string, data ...interface{}) ReactiveData {
 	var rd ReactiveData
 	if len(data) > 1 {

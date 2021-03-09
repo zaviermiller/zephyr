@@ -1,4 +1,4 @@
-package vdom
+package zephyr
 
 import (
 	// unneeded
@@ -39,7 +39,7 @@ type VNode struct {
 	Attrs ZephyrAttrs
 
 	// Component responsible for this vnode
-	Component interface{}
+	Component Component
 
 	// Listener is alerted when data the node cares
 	// about is updated
@@ -109,8 +109,8 @@ func BuildElem(tag string, attrs map[string]interface{}, children []VNode) VNode
 	return vnode
 }
 
-func BuildText(content string) VNode {
-	vnode := VNode{NodeType: TextNode, Content: content}
+func BuildText(content *string) VNode {
+	vnode := VNode{NodeType: TextNode, Content: *content}
 
 	return vnode
 }
