@@ -1,5 +1,5 @@
 # Zephyr
-Zephyr is a reactive frontend Go framework that borrows some principles from [VueJS](https://www.vuejs.org). Our goal is to bring WebAssembly to the forefront of the frontend industry by providing an intuitive API for an already simple language. #MakeJSDOMAgain
+Zephyr is a reactive frontend Go framework that borrows some principles from [VueJS](https://www.vuejs.org). Our goal is to bring WebAssembly to the forefront of the frontend industry by providing an intuitive API for an already simple language
 
 This API is very much unfinished/experimental and will evolve over time, not only as we learn what users need but also as Go improves as well. For example, the APIs will be even more intuitive with the introduction of Generics in Go1.18, making it easier to get up and running with just the runtime. But for now, don't put in prod.
 
