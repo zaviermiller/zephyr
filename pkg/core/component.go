@@ -1,8 +1,8 @@
 package zephyr
 
 import (
+	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 )
 
@@ -13,26 +13,22 @@ type Component interface {
 	Render() VNode
 
 	// Base functions
-	Get(string) interface{}
-	Set(string, interface{}) interface{}
-	GetChildComponent(id string) Component
+	// Get(string) interface{}
+	// Set(string, interface{}) interface{}
+	// GetChildComponent(id string) Component
 
-	// internal use (maybe unnecessary)
-	CreateListener(ComponentListener)
+	// interally used to get the base struct and
+	// ensure that user defined components
 	getBase() *BaseComponent
 }
 
-type Props interface {
-	//some method
+type Mounter interface {
+	OnMount()
 }
 
-type BaseProps struct {
+type Updater interface {
+	OnUpdate()
 }
-
-// HookFunc is the type used for the hook functions
-// that run at certain points in the runtime process.
-// HookFuncs should not take or return anything
-type HookFunc func()
 
 // This probably will only allow one return value, is there
 // a use case where this doesnt work??
@@ -50,7 +46,9 @@ type BaseComponent struct {
 
 	// Listener is notified of any changes
 	// to the variables it is listening to
-	Listener Listener
+	Listener ComponentListener
+
+	Node *VNode
 
 	// Hooks =-=-=
 	// These functions will be called according to
@@ -59,17 +57,38 @@ type BaseComponent struct {
 	//		Component is instantiated 			 | OnInit()
 	//		Component is mounted to the DOM  | OnMount()
 	//		Component is updated 						 | OnUpdate()
-	OnInit   HookFunc
-	OnMount  HookFunc
-	OnUpdate HookFunc
 }
 
-func (c *BaseComponent) CreateListener(listener ComponentListener) {
-	c.Listener = &listener
+// maybe refactor -- was kinda hacking
+func (c *BaseComponent) SetListenerUpdater(f func()) {
+	c.Listener.Updater = f
 }
 
 func (c *BaseComponent) getBase() *BaseComponent {
 	return c
+}
+
+func (c *BaseComponent) setNode(node *VNode) {
+	c.Node = node
+}
+
+func RenderWrapper(c Component) VNode {
+	// initial render and re-renders, cache unchanged components
+	base := c.getBase()
+	if base.Node != nil {
+		if base.CompareData(base.Node) {
+			return *base.Node
+		}
+	}
+	node := c.Render()
+	c.getBase().Node = &node
+	node.Component = c
+
+	return node
+}
+
+func UpdateWrapper(c Component) {
+	//
 }
 
 func NewComponent(c Component) Component {
@@ -81,6 +100,7 @@ func NewComponent(c Component) Component {
 		// fmt.Println(componentId)
 	} else {
 		base.interalID = componentId[1]
+		base.Listener = ComponentListener{ID: base.interalID}
 	}
 
 	return c
@@ -89,125 +109,126 @@ func NewComponent(c Component) Component {
 
 func (c *BaseComponent) RegisterComponents(components []Component) {
 	c.components = make(map[string]Component)
-	for _, child := range components {
+	for i, childIface := range components {
+		child := components[i].getBase()
 		onChildUpdate := func() {
-			c.Listener.Update()
+			fmt.Println("test")
 		}
-		child.CreateListener(ComponentListener{ID: child.getBase().interalID, Updater: onChildUpdate})
+		child.SetListenerUpdater(onChildUpdate)
 		child.getBase().parentComponent = c
-		child.Init()
-		c.components[child.getBase().interalID] = child
+		childIface.Init()
+		c.components[child.getBase().interalID] = childIface
 		// child.getBase().parentComponent = c
 	}
 }
 
 // DefineData is a wrapper that initializes and creates the components
 // data map from an input
-func (c *BaseComponent) DefineProps(propDefs map[string]interface{}) {
-	c.props = make(map[string]ReactiveData)
-	for key, val := range propDefs {
-		c.Set(key, val)
-	}
-}
+// func (c *BaseComponent) DefineProps(propDefs map[string]interface{}) {
+// 	c.props = make(map[string]ReactiveData)
+// 	for key, val := range propDefs {
+// 		c.Set(key, val)
+// 	}
+// }
 
 // DefineData is a wrapper that initializes and creates the components
 // data map from an input
-func (c *BaseComponent) DefineData(dataDefs map[string]interface{}) {
-	c.data = make(map[string]ReactiveData)
-	for key, val := range dataDefs {
-		c.Set(key, val)
-	}
-}
+// func (c *BaseComponent) DefineData(dataDefs map[string]interface{}) {
+// 	c.data = make(map[string]ReactiveData)
+// 	for key, val := range dataDefs {
+// 		c.Set(key, val)
+// 	}
+// }
 
 // DefineMethods initializes and creates the inputed methods
-func (c *BaseComponent) DefineMethods(methodDefs map[string]interface{}) {
-	c.methods = map[string]interface{}{}
-	for key, val := range methodDefs {
-		c.SetMethod(key, val)
-	}
-}
+// func (c *BaseComponent) DefineMethods(methodDefs map[string]interface{}) {
+// 	c.methods = map[string]interface{}{}
+// 	for key, val := range methodDefs {
+// 		c.SetMethod(key, val)
+// 	}
+// }
 
-func recurToString(d interface{}) string {
-	switch d.(type) {
-	case string:
-		return d.(string)
-	case int, int8, int16, int32, int64:
-		return strconv.Itoa(d.(int))
-	case uint, uint8, uint16, uint32, uint64:
-		return strconv.Itoa(int(d.(uint)))
-	case ComputedFunc:
-		return recurToString(d.(ComputedFunc)())
-	}
-	return ""
+// func recurToString(d interface{}) string {
+// 	switch d.(type) {
+// 	case string:
+// 		return d.(string)
+// 	case int, int8, int16, int32, int64:
+// 		return strconv.Itoa(d.(int))
+// 	case uint, uint8, uint16, uint32, uint64:
+// 		return strconv.Itoa(int(d.(uint)))
+// 	case ComputedFunc:
+// 		return recurToString(d.(ComputedFunc)())
+// 	}
+// 	return ""
 
-}
+// }
 
 // Get is the public function used to get values from the
 // components data
-func (c *BaseComponent) Get(key string) interface{} {
-	if c.data == nil {
-		c.data = make(map[string]ReactiveData)
-	}
-	if rd, ok := c.data[key]; ok {
-		rd.Register(c.Listener)
-		c.data[key] = rd
+// func (c *BaseComponent) Get(key string) interface{} {
+// 	if c.data == nil {
+// 		c.data = make(map[string]ReactiveData)
+// 	}
+// 	if rd, ok := c.data[key]; ok {
+// 		rd.Register(c.Listener)
+// 		c.data[key] = rd
 
-		switch rd.Data.(type) {
-		// rip no generics
-		case ComputedFunc:
-			return rd.Data.(ComputedFunc)()
-		default:
-			return rd.Data
-		}
-	}
-	return nil
-}
+// 		switch rd.Data.(type) {
+// 		// rip no generics
+// 		case ComputedFunc:
+// 			return rd.Data.(ComputedFunc)()
+// 		default:
+// 			return rd.Data
+// 		}
+// 	}
+// 	return nil
+// }
 
-func (c *BaseComponent) GetStr(key string) string {
-	if c.data == nil {
-		c.data = make(map[string]ReactiveData)
-	}
-	if rd, ok := c.data[key]; ok {
-		rd.Register(c.Listener)
-		data := rd.Data
-		// immutability smh
-		c.data[key] = rd
-		return recurToString(data)
-	}
-	return ""
-}
+// func (c *BaseComponent) GetStr(key string) string {
+// 	if c.data == nil {
+// 		c.data = make(map[string]ReactiveData)
+// 	}
+// 	if rd, ok := c.data[key]; ok {
+// 		rd.Register(c.Listener)
+// 		data := rd.Data
+// 		// immutability smh
+// 		c.data[key] = rd
+// 		return recurToString(data)
+// 	}
+// 	return ""
+// }
 
-func (c *BaseComponent) Set(key string, data interface{}) interface{} {
-	if c.data == nil {
-		c.data = make(map[string]ReactiveData)
-	}
-	var newData ReactiveData
-	if _, ok := c.data[key]; ok {
-		// change to switch
-		if reflect.TypeOf(data).String() != c.data[key].Type || reflect.TypeOf(data).Kind() == reflect.Func {
-			panic("Type mismatch or computed redefinition")
-		}
-		// if _, ok := data.(c.data[key].Type)
-		newData = c.data[key]
-		newData.Data = data
-	} else {
-		switch data.(type) {
-		case func() interface{}, func():
-			newData = newReactiveData("Computed", ComputedFunc(data.(func() interface{})))
-		default:
-			newData = newReactiveData(reflect.TypeOf(data).String(), data)
-		}
-	}
+// func (c *BaseComponent) Set(key string, data interface{}) interface{} {
+// 	if c.data == nil {
+// 		c.data = make(map[string]ReactiveData)
+// 	}
+// 	var newData ReactiveData
+// 	if _, ok := c.data[key]; ok {
+// 		// change to switch
+// 		if reflect.TypeOf(data).String() != c.data[key].Type || reflect.TypeOf(data).Kind() == reflect.Func {
+// 			panic("Type mismatch or computed redefinition")
+// 		}
+// 		// if _, ok := data.(c.data[key].Type)
+// 		newData = c.data[key]
+// 		newData.Data = data
+// 	} else {
+// 		switch data.(type) {
+// 		case func() interface{}, func():
+// 			newData = newReactiveData("Computed", ComputedFunc(data.(func() interface{})))
+// 		default:
+// 			newData = newReactiveData(reflect.TypeOf(data).String(), data)
+// 		}
+// 	}
 
-	// fmt.Println("set: ", key)
+// 	// fmt.Println("set: ", key)
 
-	c.data[key] = newData
+// 	c.data[key] = newData
 
-	// notify of update
-	c.data[key].Notify()
+// 	// notify of update
+// 	c.data[key].Notify()
 
-	return newData.Data
-}
+// 	return newData.Data
+// }
 
 func (c *BaseComponent) GetChildComponent(id string) Component {
 	return c.components[id]

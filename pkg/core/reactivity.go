@@ -1,5 +1,10 @@
 package zephyr
 
+import (
+	"fmt"
+	"reflect"
+)
+
 type Listener interface {
 	Update()
 }
@@ -15,44 +20,31 @@ type Subject interface {
 // being listened to, and notifies listeners of
 // any changes.
 type ReactiveData struct {
-	// Type is a field to provide artificial type-checking
-	Type      string
 	Data      interface{}
-	Listeners []Listener
+	Listeners map[string]Listener
 }
 
 func NewRD(data interface{}) ReactiveData {
 	var rd ReactiveData
-	rd = ReactiveData{Data: data}
+	rd = ReactiveData{Data: data, Listeners: map[string]Listener{}}
 
 	return rd
 }
 
-func newReactiveData(dataType string, data ...interface{}) ReactiveData {
-	var rd ReactiveData
-	if len(data) > 1 {
-		panic("Too much data!")
-	}
-	if len(data) > 0 {
-		rd = ReactiveData{Type: dataType, Data: data[0]}
-	} else {
-		rd = ReactiveData{Type: dataType, Data: nil}
-	}
-
-	return rd
+func (rd *ReactiveData) RegisterOnComponent(l *ComponentListener) {
+	rd.Listeners[l.ID] = Listener(l)
 }
 
-func (rd *ReactiveData) Register(l Listener) {
-	// make sure listener doesnt exist
-	for _, val := range rd.Listeners {
-		if l.(ComponentListener).ID == val.(ComponentListener).ID {
-			return
-		}
+func (rd *ReactiveData) Register(l interface{}) {
+	switch l.(type) {
+	case *ComponentListener:
+		rd.RegisterOnComponent(l.(*ComponentListener))
+	default:
+		fmt.Println(reflect.TypeOf(l))
 	}
-	rd.Listeners = append(rd.Listeners, l)
 }
 
-func (rd ReactiveData) Notify() {
+func (rd *ReactiveData) Notify() {
 	for _, l := range rd.Listeners {
 		l.Update()
 	}
@@ -65,5 +57,9 @@ type ComponentListener struct {
 
 func (l ComponentListener) Update() {
 	// re-render component on update
-	l.Updater()
+	if l.Updater != nil {
+		l.Updater()
+	}
 }
+
+// func ()

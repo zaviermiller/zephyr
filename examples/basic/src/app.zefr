@@ -3,17 +3,19 @@
     "src/components"
   )
 
-  type App struct {}
+  type App struct {
+    message string `zephyr:"data"`
 
-  func Init() {
+    computedProp 
+  }
+
+  func (a App) Init() {
     
   }
 
 </go-script>
 
-<template>
-  <zephyr-view />
-</template>
+<zephyr-view />
 
 <style>
 </style>

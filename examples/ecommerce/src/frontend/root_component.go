@@ -3,22 +3,30 @@ package main
 import (
 	"github.com/zaviermiller/zephyr/examples/superbasic/src/components/hello"
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
-	"github.com/zaviermiller/zephyr/pkg/core/vdom"
 )
 
 type RootComponent struct {
-	*zephyr.BaseComponent
+	zephyr.BaseComponent
 
+	// component access - remove
 	HelloComponent zephyr.Component
+
+	counter    int
+	setCounter func(int)
+
+	message    string
+	setMessage func(string)
+
+	// `vugu:"prop"`
+
+	computedMessage func() string
 }
 
-func (rc *RootComponent) increaseCounter() {
-	rc.Set("counter", rc.Get("counter").(int)+1)
-}
+var test = "steamy"
 
 func (rc *RootComponent) Init() {
 	// set components to local vars
-	rc.HelloComponent = zephyr.NewComponent(&hello.HelloComponent{&zephyr.BaseComponent{}})
+	rc.HelloComponent = zephyr.NewComponent(&hello.HelloComponent{})
 
 	// var counter = 0
 	// rc.ReactiveInt(&counter, "counter")
@@ -28,9 +36,16 @@ func (rc *RootComponent) Init() {
 		rc.HelloComponent,
 	})
 
+	// rc.counter = 0
+	rc.setCounter = rc.BindInt(&rc.counter)
+
+	// rc.message = "Zephyr"
+	// rc.setMessage = rc.BindString(&rc.message)
+
+	// rc.computedMessage =
+
 	rc.DefineData(map[string]interface{}{
 		"recipient": "Zephyr",
-		"counter":   0,
 		"messageComputed": func() interface{} {
 			return rc.Get("message").(string) + " and world!"
 		},
@@ -38,25 +53,30 @@ func (rc *RootComponent) Init() {
 
 }
 
+func (rc *RootComponent) increaseCounter() {
+	rc.setCounter(rc.counter + 1)
+	test += "new"
+}
+
 // Render is a function that must be implemented by all
-// components and is responsible for building the vdom of the
+// components and is responsible for building the zephyr of the
 // component.
-func (rc *RootComponent) Render() vdom.VNode {
+func (rc *RootComponent) Render() zephyr.VNode {
 	// localVar := reflect.TypeOf(&hello.HelloComponent{}).String()
 
-	return vdom.BuildElem("div", nil, []vdom.VNode{
-		vdom.BuildElem("button", map[string]interface{}{
+	return zephyr.BuildElem("div", nil, []zephyr.VNode{
+		zephyr.BuildElem("button", map[string]interface{}{
 			"onclick":      rc.increaseCounter,
 			"ontouchstart": rc.increaseCounter,
-		}, []vdom.VNode{
-			vdom.BuildText("Click me"),
+		}, []zephyr.VNode{
+			zephyr.BuildText(&test),
 		}),
-		vdom.BuildComment("OH NO MY MELONS"),
-		vdom.BuildElem("span", nil, []vdom.VNode{vdom.BuildText(rc.GetStr("counter"))}),
+		zephyr.BuildComment("OH NO MY MELONS"),
+		zephyr.BuildElem("span", nil, []zephyr.VNode{zephyr.BuildText(&test)}),
 		rc.HelloComponent.Render(),
 		// rc.GetChildComponentWithProps(strings.Split(localVar, ".")[1]).Render(),
-		// vdom.BuildComponent(rc.)
-		// vdom.BuildElem("input", map[string]interface{}{"type": "text", "onchange": func(el js.alue) { rc.Set("message", el.Get("value").String()) }}, nil)
+		// zephyr.BuildComponent(rc.)
+		// zephyr.BuildElem("input", map[string]interface{}{"type": "text", "onchange": func(el js.alue) { rc.Set("message", el.Get("value").String()) }}, nil)
 	})
 }
 

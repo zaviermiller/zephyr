@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	"cli/display"
+	"github.com/zaviermiller/zephyr/internal/cli/display"
 )
 
 func main() {
 	// ensure correct usage
 	if len(os.Args) < 2 {
-		errAndExit("Usage: " + display.Blue + os.Args[0] + " [command] [options]" + display.Normal + "\n\nPossible commands are:" + display.Yellow + "\n   create")
+		errAndExit("Usage: " + display.Blue + os.Args[0] + " [command] [options]" + display.Normal + "\n\nAvailable commands are:" + display.Yellow + "\n   create")
 
 	}
 
@@ -18,7 +18,7 @@ func main() {
 	case "create":
 
 	default:
-		errAndExit("Unrecognized command '" + cmd + "'" + display.Normal + "\n\nPossible commands are: " + display.Yellow + "\n   create")
+		errAndExit("Unrecognized command '" + cmd + "'" + display.Normal + "\n\nAvailable commands are: " + display.Yellow + "\n   create")
 	}
 
 }

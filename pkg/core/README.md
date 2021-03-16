@@ -1,3 +1,3 @@
 # Zephyr Core
 
-This file contains code that is tightly coupled together that implements a virtual DOM, component interface and "base class", and reactivity helpers.
+The `core` package contains all the code needed to start the runtime, build components, etc. It's all in the same package for ease of use, but each file should be 
