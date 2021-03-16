@@ -3,8 +3,7 @@ Zephyr is a reactive frontend Go framework based on core ideas from React and Vu
 
 This package uses the `unsafe` and `syscall/js` APIs, both of which are subject to change. All part of the library that use
 
--Zavier Miller (creator of Zephyr)
-
+This document is a WIP, I'll be getting er done as the features get done. The checklist is up to date though.
 ### Acknowledgements
 
 ---
