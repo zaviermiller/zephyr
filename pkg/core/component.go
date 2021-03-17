@@ -1,7 +1,6 @@
 package zephyr
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 )
@@ -10,7 +9,7 @@ type Component interface {
 
 	// Public API
 	Init()
-	Render() VNode
+	Render() *VNode
 
 	// Base functions
 	// Get(string) interface{}
@@ -37,10 +36,10 @@ type ComputedFunc func() interface{}
 type BaseComponent struct {
 	interalID string
 
-	props      map[string]ReactiveData
-	data       map[string]ReactiveData
-	methods    map[string]interface{}
-	components map[string]Component
+	props   map[string]interface{}
+	data    map[string]ReactiveData
+	methods map[string]interface{}
+	// components map[string]Component
 
 	parentComponent *BaseComponent
 
@@ -49,6 +48,11 @@ type BaseComponent struct {
 	Listener ComponentListener
 
 	Node *VNode
+
+	// Context is a reference to the ZephyrApp
+	// which is necessary to register global events
+	// and stuff
+	Context *ZephyrApp
 
 	// Hooks =-=-=
 	// These functions will be called according to
@@ -64,6 +68,17 @@ func (c *BaseComponent) SetListenerUpdater(f func()) {
 	c.Listener.Updater = f
 }
 
+func (c *BaseComponent) BindProp(propName string) interface{} {
+	base := c.getBase()
+	val, ok := base.props[propName]
+	if !ok {
+		panic("Zephyr framework error")
+	}
+
+	return val
+
+}
+
 func (c *BaseComponent) getBase() *BaseComponent {
 	return c
 }
@@ -72,17 +87,38 @@ func (c *BaseComponent) setNode(node *VNode) {
 	c.Node = node
 }
 
-func RenderWrapper(c Component) VNode {
+// The following functions are wrappers around the hooks,
+// which get called at different lifecycle events. The
+// wrappers exist to run some code before or after the
+// user run code which may be necessary.
+
+func InitWrapper(c Component) {
+	base := c.getBase()
+	if base.Context == nil {
+		base.Context = base.parentComponent.Context
+	}
+	c.Init()
+}
+
+func RenderWrapper(c Component) *VNode {
 	// initial render and re-renders, cache unchanged components
 	base := c.getBase()
-	if base.Node != nil {
-		if base.CompareData(base.Node) {
-			return *base.Node
-		}
-	}
 	node := c.Render()
-	c.getBase().Node = &node
-	node.Component = c
+	base.Node = node
+	// create listener for root changes
+	ListenerFunc := func() {
+		// vdom := app.RootComponent.Render()
+		// fmt.Println("update detected! new vdom: " + func() string { b, _ := json.Marshal(app.RootNode); return string(b) }())
+		go base.Context.CompareDOM(base.Node)
+	}
+	// move?
+	base.SetListenerUpdater(ListenerFunc)
+	// if base.Node != nil {
+	// 	// if base.CompareData(base.Node) {
+	// 	// 	return *base.Node
+	// 	// }
+	// }
+	// node.Component = c
 
 	return node
 }
@@ -107,20 +143,20 @@ func NewComponent(c Component) Component {
 
 }
 
-func (c *BaseComponent) RegisterComponents(components []Component) {
-	c.components = make(map[string]Component)
-	for i, childIface := range components {
-		child := components[i].getBase()
-		onChildUpdate := func() {
-			fmt.Println("test")
-		}
-		child.SetListenerUpdater(onChildUpdate)
-		child.getBase().parentComponent = c
-		childIface.Init()
-		c.components[child.getBase().interalID] = childIface
-		// child.getBase().parentComponent = c
-	}
-}
+// func (c *BaseComponent) RegisterComponents(components []Component) {
+// 	c.components = make(map[string]Component)
+// 	for i, childIface := range components {
+// 		child := components[i].getBase()
+// 		onChildUpdate := func() {
+// 			fmt.Println("test")
+// 		}
+// 		child.SetListenerUpdater(onChildUpdate)
+// 		child.getBase().parentComponent = c
+// 		childIface.Init()
+// 		c.components[child.getBase().interalID] = childIface
+// 		// child.getBase().parentComponent = c
+// 	}
+// }
 
 // DefineData is a wrapper that initializes and creates the components
 // data map from an input
@@ -228,85 +264,4 @@ func (c *BaseComponent) RegisterComponents(components []Component) {
 // 	c.data[key].Notify()
 
 // 	return newData.Data
-// }
-
-func (c *BaseComponent) GetChildComponent(id string) Component {
-	return c.components[id]
-}
-
-func (c *BaseComponent) GetMethod(key string) func(args ...interface{}) interface{} {
-	if c.methods == nil {
-		c.methods = make(map[string]interface{})
-	}
-	if f, ok := c.methods[key]; ok {
-		switch f.(type) {
-		case func(), func(...interface{}):
-			return func(args ...interface{}) interface{} {
-				f.(func(...interface{}))(args)
-				return nil
-			}
-		case func() interface{}, func(...interface{}) interface{}:
-			return f.(func(...interface{}) interface{})
-		default:
-			// fmt.Println(reflect.TypeOf(f))
-			return nil
-		}
-	}
-	return nil
-}
-
-func (c *BaseComponent) SetMethod(key string, data interface{}) {
-	if c.methods == nil {
-		c.methods = make(map[string]interface{})
-	}
-	if _, ok := c.data[key]; ok {
-		panic("Method redefined!")
-	}
-
-	c.methods[key] = data
-
-	// notify of update
-	// c.methods[key].Notify()
-}
-
-// func DefineMethods() map[string]MethodFunc {
-
-// }
-
-// // figure out a better name for computed
-// func DefineComputed() map[string]ComputedFunc {
-
-// }
-
-// Unused
-// func InitComponent(c Component) Component {
-// 	// ignoredMethods := []string{"Get", "Render"}
-// 	base := c.getBase()
-// 	// base := c
-// 	// fmt.Println(base)
-// 	base.Data = make(map[string]ReactiveData)
-// 	structType := reflect.TypeOf(c)
-
-// 	// parse out data from struct fields
-// 	for i := 1; i < structType.NumField(); i++ {
-// 		field := structType.Field(i)
-// 		// fmt.Println(structType.Field(i).Name)
-// 		base.Data[field.Name] = newReactiveData(field.Type.Name(), nil)
-// 		// fmt.Println(field)
-// 	}
-
-// 	// parse out hook and other funcs from struct methods
-// 	for i := 0; i < structType.NumMethod(); i++ {
-// 		method := structType.Method(i)
-
-// 		switch method.Name {
-// 		case "OnInit":
-// 			fmt.Println()
-// 		case "Get", "Render":
-// 		}
-// 		// fmt.Println(method.Name)
-
-// 	}
-
-// 	return c
 // }

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/zaviermiller/zephyr/examples/superbasic/src/components/test"
@@ -22,11 +23,6 @@ type AppComponent struct {
 }
 
 func (ac *AppComponent) Init() {
-
-	ac.RegisterComponents([]zephyr.Component{
-		test.Component,
-	})
-
 	ac.setThickData = ac.BindList(&ac.thickData)
 	ac.thickData = make([]int, 100)
 
@@ -53,19 +49,20 @@ func (ac *AppComponent) OnesArray() interface{} {
 	return a
 }
 
-func (ac *AppComponent) Render() zephyr.VNode {
-	return *zephyr.Element("div", nil, []*zephyr.VNode{
+func (ac *AppComponent) ArrLength() interface{} {
+	return strconv.Itoa(len(ac.thickData))
+}
+
+func (ac *AppComponent) Render() *zephyr.VNode {
+	return zephyr.Element("div", nil, []*zephyr.VNode{
 		zephyr.Element("h1", nil, []*zephyr.VNode{
 			zephyr.DynamicText(ac.OnesArray),
 		}),
-		zephyr.ChildComponent(test.Component),
+		ac.ChildComponent(test.Component, map[string]interface{}{"propArr": &ac.thickData, "propComputed": ac.ArrLength}),
 	})
 }
 
 func main() {
-	zefr := zephyr.InitApp(App)
+	zefr := zephyr.CreateApp(App)
 	zefr.Mount("#app")
-	// dont terminate
-	// done := make(chan struct{}, 1)
-	// <-done
 }

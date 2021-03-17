@@ -56,7 +56,8 @@ These are the concrete features currently offered and planned by the Zephyr API:
 - - [ ] State manager
 - - [ ] More
 - - [ ] & more! [Accepting suggestions]()
-
+- [ ] Better tree-diffing
+- [ ] Remove vDOM?
 
 
 

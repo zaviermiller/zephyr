@@ -1,10 +1,5 @@
 package zephyr
 
-import (
-	"fmt"
-	"reflect"
-)
-
 // Reactive helpers =-=
 // The Bind[Type] methods take a pointer to their respective
 // type and returns a function used to set the data that will
@@ -133,12 +128,12 @@ func (c *BaseComponent) BindList(arrLocation interface{}) func(interface{}) {
 	}
 }
 
-func (c *BaseComponent) CompareData(node *VNode) bool {
-	for i, data := range c.data {
-		if !reflect.DeepEqual(data, node.Component.getBase().data[i]) {
-			return false
-		}
-	}
-	fmt.Println(c, " cached")
-	return true
-}
+// func (c *BaseComponent) CompareData(node *VNode) bool {
+// 	for i, data := range c.data {
+// 		if !reflect.DeepEqual(data, node.Component.getBase().data[i]) {
+// 			return false
+// 		}
+// 	}
+// 	fmt.Println(c, " cached")
+// 	return true
+// }

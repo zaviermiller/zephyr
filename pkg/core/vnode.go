@@ -7,11 +7,9 @@ Node struct exactly.
 package zephyr
 
 import (
-	// unneeded
-
-	"fmt" // unneeded
+	"fmt" // TODO: remove
 	"math/rand"
-	"reflect" // unneeded
+	"reflect" // TODO: rmeove
 	"strconv"
 
 	"golang.org/x/net/html"
@@ -42,9 +40,11 @@ type ZephyrAttr struct {
 	Namespace, Key, Value string
 }
 
-// The VNode struct is a simple intermediary between the stdlib html.Node
+// VNode struct is a simple intermediary between the stdlib html.Node
 // and a Zephyr Component instance. There are also a few extra fields for
-// optimizing patching
+// optimizing patching. Its all on the heap :( I feel like this is bad, but
+// I don't know how else to have ref variables inited in the func. FP maybe?
+// Will investigate.
 type VNode struct {
 	// NodeType is the virtual nodes DOM node type
 	NodeType VNodeType
@@ -62,20 +62,19 @@ type VNode struct {
 	Attrs []ZephyrAttr
 
 	// Component responsible for this vnode
-	Component Component
+	// Component Component
 
 	// HTMLNode is the Go representation of the currently rendered
 	// HTML tree
 	HTMLNode *html.Node
-	// Listener is alerted when data the node cares
-	// about is updated
-	// Listener *zephyr.VDomListener
 
 	// Other node refs
 	Parent, FirstChild, LastChild, PrevSibing, NextSibling *VNode
 
-	Static  bool
-	Comment bool
+	// Flags
+	Static    bool
+	Comment   bool
+	Component bool
 }
 
 // the js part of this is very very temporary, in fact the whole function is
@@ -94,7 +93,9 @@ func (node *VNode) BuildAttrs(attrs map[string]interface{}) {
 		switch val.(type) {
 		case string:
 			zAttrs = append(zAttrs, ZephyrAttr{Key: key, Value: val.(string)})
-		// this is some kind of method that returns a value
+		// this is some kind of method that returns a value (computed)
+		// case func() interface{}:
+		// 	zAttrs = append(zAttrs, ZephyrAttr{Key: key, Value: val.(func() interface{})})
 		default:
 			fmt.Println(reflect.TypeOf(val).String())
 		}
@@ -140,16 +141,17 @@ func (node *VNode) ToHTMLNode() *html.Node {
 			case []int:
 				htmlNode = &html.Node{Data: arrToString(evaluated.([]int)), Type: html.NodeType(node.NodeType)}
 			default:
-				fmt.Println(reflect.TypeOf(evaluated).String())
+				fmt.Println(node.DOM_ID+" func return type not supported by ToHTMLNode: ", reflect.TypeOf(evaluated).String())
 			}
 		default:
-			fmt.Println(reflect.TypeOf(node.Content).String())
+			fmt.Println(node.DOM_ID+" type not supported by ToHTMLNode: ", reflect.TypeOf(node.Content).String())
 		}
 	} else if node.NodeType == ElementNode {
 		htmlNode = &html.Node{Data: node.Tag, Type: html.NodeType(node.NodeType)}
 	} else {
 		fmt.Println(node.NodeType)
 	}
+
 	attrs := []html.Attribute{}
 	for _, attr := range node.Attrs {
 		attrs = append(attrs, html.Attribute{Namespace: attr.Namespace, Key: attr.Key, Val: attr.Value})
@@ -180,22 +182,34 @@ func (node *VNode) ToHTMLNode() *html.Node {
 }
 
 func GetElID(nodeTag string) string {
-	return "z-" + nodeTag + strconv.Itoa(rand.Int()%128)
+	// 0-127
+	return "Z" + nodeTag + "-" + strconv.Itoa(int(rand.Uint32()>>25))
 }
 
 // ChildComponent calls the render func of a child component
-func ChildComponent(c Component) *VNode {
+func (parent *BaseComponent) ChildComponent(c Component, props map[string]interface{}) *VNode {
+	// set context based on parent
+	parentBase := parent.getBase()
+	base := c.getBase()
+	base.Context = parentBase.Context
+
+	// parse and pass props
+	base.props = props
+	if base.props == nil {
+		base.props = make(map[string]interface{}, 5)
+	}
+	// fmt.Println(c, base.props)
+	// initialize component
+	InitWrapper(c)
+
+	// render component
 	node := RenderWrapper(c)
-	return &node
-}
-
-func (node *VNode) Props(map[string]interface{}) VNode {
-
+	return node
 }
 
 // Element will create VNodes for the element and all of its children
-func Element(tag string, attrs map[string]interface{}, children []*VNode) VNode {
-	vnode := VNode{NodeType: ElementNode, Tag: tag, DOM_ID: GetElID(tag)}
+func Element(tag string, attrs map[string]interface{}, children []*VNode) *VNode {
+	vnode := VNode{NodeType: ElementNode, Tag: tag, DOM_ID: GetElID(tag), Component: false}
 	var prev *VNode = nil
 	var next *VNode = nil
 	static := true
@@ -213,27 +227,29 @@ func Element(tag string, attrs map[string]interface{}, children []*VNode) VNode 
 		}
 		curr.PrevSibing = prev
 		curr.NextSibling = next
+		// on the heap, oh well, root elements will be stack
 		curr.Parent = &vnode
 		static = static && curr.Static
 		prev = curr
 	}
 	vnode.BuildAttrs(attrs)
 	vnode.Static = static
-	return vnode
+	return &vnode
 }
 
-func StaticText(content string) VNode {
-	vnode := VNode{NodeType: TextNode, Content: content, Static: true}
+func StaticText(content string) *VNode {
+	vnode := VNode{NodeType: TextNode, Content: content, Static: true, Component: false}
 
-	return vnode
+	return &vnode
 }
 
-func DynamicText(dynamicData interface{}) VNode {
+// works with computed props!
+func DynamicText(dynamicData interface{}) *VNode {
 	// dynamicVal := evalFunc()
 
 	// type stuff
-	vnode := VNode{NodeType: TextNode, Content: dynamicData}
-	return vnode
+	vnode := VNode{NodeType: TextNode, Content: dynamicData, Component: false, Static: false}
+	return &vnode
 	// switch dynamicVal.(type) {
 	// case *[]int:
 	// default:

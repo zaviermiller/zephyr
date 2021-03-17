@@ -8,13 +8,9 @@
 package zephyr
 
 import (
-	"bytes"
-	"fmt"
 	"reflect"
 
 	"syscall/js"
-
-	"golang.org/x/net/html"
 )
 
 type Document js.Value
@@ -54,54 +50,9 @@ func (d Document) GetByID(id string) js.Value {
 	return el
 }
 
-func domUpdateListener(z *ZephyrApp) {
-	for {
-		fmt.Println("waiting for update")
-		currentUpdate := <-z.UpdateQueue
-		fmt.Println("received update: ", currentUpdate, currentUpdate.Data)
-		var renderedHTML string
-		switch currentUpdate.Data.(type) {
-		case *html.Node:
-			var bb bytes.Buffer
-			html.Render(&bb, currentUpdate.Data.(*html.Node))
-			renderedHTML = string(bb.Bytes())
-		case string:
-			renderedHTML = currentUpdate.Data.(string)
-		}
-
-		switch currentUpdate.Operation {
-		case Insert:
-			parentEl := z.DOMElements[currentUpdate.ElementID]
-			fmt.Println("insert ", currentUpdate.Data, "at ", currentUpdate.ElementID)
-			parentEl.Call("insertAdjacentHTML", "beforeend", renderedHTML)
-		case Delete:
-			fmt.Println("delete ", currentUpdate.ElementID)
-		case UpdateAttr:
-			// UpdateAttr data should be map[string]string
-			mapData := currentUpdate.Data.(map[string]string)
-			el := Document(z.Anchor).GetByID(currentUpdate.ElementID)
-			for key, val := range mapData {
-				SetAttribute(el, key, val)
-			}
-		case UpdateContent:
-			fmt.Println("Content updated: ", currentUpdate.ElementID)
-			// fmt.Println("updating ", currentUpdate.ElementID)
-			el, ok := z.DOMElements[currentUpdate.ElementID]
-			if !ok {
-				el = Document(z.Anchor).GetByID(currentUpdate.ElementID)
-				z.DOMElements[currentUpdate.ElementID] = el
-			}
-			SetInnerHTML(el, renderedHTML)
-			// case OverwriteInnerHTML:
-			// 	el := Document(z.Anchor).QuerySelector(currentUpdate.ElementID)
-			// 	SetInnerHTML(el, currentUpdate.Data.(string))
-		}
-	}
-}
-
 func SetInnerHTML(el js.Value, content string) {
-	js.Global().Get("console").Call("dir", el)
-	fmt.Println("set ^ to ", content)
+	// js.Global().Get("console").Call("dir", el)
+	// fmt.Println("set ^ to ", content)
 	el.Set("innerHTML", content)
 }
 
@@ -110,8 +61,12 @@ func SetAttribute(el js.Value, key, val string) {
 	el.Call("setAttribute", key, val)
 }
 
-func CompareDOM(z *ZephyrApp) {
-	root := z.RootNode
+// CompareDOM will compare the currently rendered subtree
+// and a newly generated one. It sends over any updates through
+// the UpdateQueue, where they will then be processed. The
+// currently rendered DOM is stored in the DOMNodes map, which
+// allows for quick reads for comparisons.
+func (z *ZephyrApp) CompareDOM(root *VNode) {
 	root.ToHTMLNode()
 
 	var RecurComp func(node VNode)
@@ -126,7 +81,7 @@ func CompareDOM(z *ZephyrApp) {
 				z.DOMNodes[node.DOM_ID] = *node.HTMLNode
 				// insert op
 				if _, ok := z.DOMElements[node.DOM_ID]; !ok && node.DOM_ID == root.DOM_ID {
-					z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: "#app", Data: node.HTMLNode}
+					z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: z.AnchorSelector, Data: node.HTMLNode}
 					return
 				} // else {
 				// 	z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: node.Parent.DOM_ID, Data: node.HTMLNode}
@@ -156,55 +111,5 @@ func CompareDOM(z *ZephyrApp) {
 		}
 	}
 
-	RecurComp(root)
+	RecurComp(*root)
 }
-
-// RenderHTML will return a string containing the HTML
-// for the VNode and all its children
-// func RenderHTML(n VNode) string {
-// 	htmlString := ""
-// 	switch t := n.NodeType; t {
-// 	case ElementNode:
-// 		htmlString += "<" + n.Tag
-// 		if n.Attrs != nil {
-// 			for key, val := range n.Attrs {
-// 				htmlString += " " + key + "=" + val
-// 			}
-// 		}
-// 		htmlString += ">"
-// 		if n.Content != "" {
-
-// 		}
-// 		htmlString += renderChildrenHtml(n)
-// 		htmlString += "</" + n.Tag + ">"
-// 	case TextNode:
-// 		switch n.Content.(type) {
-// 		case *[]int:
-// 			htmlString += html.EscapeString(arrToString(*(n.Content.(*[]int))))
-// 		case string:
-// 			htmlString += html.EscapeString(n.Content.(string))
-// 		}
-// 	case CommentNode:
-// 		htmlString += "<!--" + n.Content.(string) + "-->"
-// 	}
-// 	return htmlString
-// }
-
-// func arrToString(arr []int) string {
-// 	str := "["
-// 	for _, item := range arr {
-// 		str += strconv.Itoa(item) + " "
-// 	}
-// 	str += "]"
-// 	return str
-// }
-
-// // put this into a func since we do it a bunch
-// func renderChildrenHtml(n VNode) string {
-// 	htmlStr := ""
-// 	for _, child := range n.Children {
-// 		htmlStr += RenderHTML(child)
-// 	}
-
-// 	return htmlStr
-// }
