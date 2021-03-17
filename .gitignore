@@ -1,3 +1,5 @@
 *.wasm
 
 experiments
+
+vendor/
