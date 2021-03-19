@@ -36,8 +36,9 @@ type ComputedFunc func() interface{}
 type BaseComponent struct {
 	interalID string
 
-	props   map[string]interface{}
-	data    map[string]ReactiveData
+	props map[string]interface{}
+	// reactive data - internal use. check reactivity.go
+	data    map[ZephyrData]ReactiveData
 	methods map[string]interface{}
 	// components map[string]Component
 
@@ -136,7 +137,7 @@ func NewComponent(c Component) Component {
 		// fmt.Println(componentId)
 	} else {
 		base.interalID = componentId[1]
-		base.Listener = ComponentListener{ID: base.interalID}
+		base.Listener = ComponentListener{}
 	}
 
 	return c

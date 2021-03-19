@@ -115,7 +115,11 @@ func (z *ZephyrApp) Mount(querySelector string) {
 		case Delete:
 			// fmt.Println("delete ", currentUpdate.ElementID)
 		case UpdateAttr:
-			// UpdateAttr data should be map[string]string
+			// UpdateAttr data should be html.Attrribute
+			newAttr := currentUpdate.Data.(html.Attribute)
+			SetAttribute(el, newAttr.Key, newAttr.Val)
+		case SetAttrs:
+			// SetAttrs data should be map[string]string
 			mapData := currentUpdate.Data.(map[string]string)
 			for key, val := range mapData {
 				SetAttribute(el, key, val)

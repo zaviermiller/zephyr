@@ -37,7 +37,8 @@ const (
 // e.g. <input type="text" /> -> "type": "text"
 type ZephyrAttr struct {
 	// Namespace is currently unused
-	Namespace, Key, Value string
+	Namespace, Key string
+	Value          interface{}
 }
 
 // VNode struct is a simple intermediary between the stdlib html.Node
@@ -59,10 +60,13 @@ type VNode struct {
 	Content interface{}
 
 	// Attrs stores the attributes for the ZNode
-	Attrs []ZephyrAttr
+	Attrs map[string]interface{}
 
-	// Component responsible for this vnode
-	// Component Component
+	// Listener is the nodes listener that
+	// triggers a comparison whenever updated.
+	// May want to add a way to tell exactly WHAT
+	// needs to be updated.
+	Listener VNodeListener
 
 	// HTMLNode is the Go representation of the currently rendered
 	// HTML tree
@@ -79,29 +83,21 @@ type VNode struct {
 
 // the js part of this is very very temporary, in fact the whole function is
 // going to just try and build it up.
-func (node *VNode) BuildAttrs(attrs map[string]interface{}) {
-	// rand.Seed(time.Now().Unix())
-	zAttrs := []ZephyrAttr{}
-	createdFuncs := map[string]string{}
+// func (node *VNode) BuildAttrs(attrs map[string]interface{}) {
+// 	// rand.Seed(time.Now().Unix())
+// 	zAttrs := []ZephyrAttr{}
+// 	createdFuncs := map[string]string{}
 
-	for key, val := range attrs {
-		// dont redefine the funcs, silly zephyr!
-		if _, ok := createdFuncs[node.Tag]; ok {
-			// zAttrs[key] = jsFunc
-			continue
-		}
-		switch val.(type) {
-		case string:
-			zAttrs = append(zAttrs, ZephyrAttr{Key: key, Value: val.(string)})
-		// this is some kind of method that returns a value (computed)
-		// case func() interface{}:
-		// 	zAttrs = append(zAttrs, ZephyrAttr{Key: key, Value: val.(func() interface{})})
-		default:
-			fmt.Println(reflect.TypeOf(val).String())
-		}
-		node.Attrs = zAttrs
-	}
-}
+// 	for key, val := range attrs {
+// 		// dont redefine the funcs, silly zephyr!
+// 		if _, ok := createdFuncs[node.Tag]; ok {
+// 			// zAttrs[key] = jsFunc
+// 			continue
+// 		}
+// 		zAttrs = append(zAttrs, ZephyrAttr{Key: key, Value: val})
+// 	}
+// 	node.Attrs = zAttrs
+// }
 
 func arrToString(arr []int) string {
 	str := "[ "
@@ -153,8 +149,15 @@ func (node *VNode) ToHTMLNode() *html.Node {
 	}
 
 	attrs := []html.Attribute{}
-	for _, attr := range node.Attrs {
-		attrs = append(attrs, html.Attribute{Namespace: attr.Namespace, Key: attr.Key, Val: attr.Value})
+	for key, val := range node.Attrs {
+		switch val.(type) {
+		case string:
+			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(string)})
+		case func() interface{}:
+			// computed attrs can only be strings
+			// fmt.Println(attr.Value)
+			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(func() interface{})().(string)})
+		}
 	}
 	attrs = append(attrs, html.Attribute{Key: "id", Val: node.DOM_ID})
 	currChild := node.FirstChild
@@ -196,7 +199,7 @@ func (parent *BaseComponent) ChildComponent(c Component, props map[string]interf
 	// parse and pass props
 	base.props = props
 	if base.props == nil {
-		base.props = make(map[string]interface{}, 5)
+		base.props = make(map[string]interface{})
 	}
 	// fmt.Println(c, base.props)
 	// initialize component
@@ -232,7 +235,16 @@ func Element(tag string, attrs map[string]interface{}, children []*VNode) *VNode
 		static = static && curr.Static
 		prev = curr
 	}
-	vnode.BuildAttrs(attrs)
+	vnode.Attrs = make(map[string]interface{})
+	for key, attr := range attrs {
+		switch attr.(type) {
+		// handle by type
+		case ZephyrString:
+			vnode.Attrs[key], _ = attr.(ZephyrString)(vnode.Listener)
+
+		case func() interface{}:
+		}
+	}
 	vnode.Static = static
 	return &vnode
 }
@@ -244,7 +256,7 @@ func StaticText(content string) *VNode {
 }
 
 // works with computed props!
-func DynamicText(dynamicData interface{}) *VNode {
+func DynamicText(dynamicData ZephyrData) *VNode {
 	// dynamicVal := evalFunc()
 
 	// type stuff

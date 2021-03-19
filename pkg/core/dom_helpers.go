@@ -8,8 +8,6 @@
 package zephyr
 
 import (
-	"reflect"
-
 	"syscall/js"
 )
 
@@ -21,6 +19,7 @@ const (
 	Insert DOMOperation = iota
 	Delete
 	UpdateAttr
+	SetAttrs
 	UpdateContent
 	OverwriteInnerHTML
 )
@@ -77,21 +76,21 @@ func (z *ZephyrApp) CompareDOM(root *VNode) {
 		}
 
 		if node.NodeType == ElementNode {
+			// check if node exists already
 			if el, ok := z.DOMNodes[node.DOM_ID]; !ok {
 				z.DOMNodes[node.DOM_ID] = *node.HTMLNode
-				// insert op
+				// initial root render
 				if _, ok := z.DOMElements[node.DOM_ID]; !ok && node.DOM_ID == root.DOM_ID {
 					z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: z.AnchorSelector, Data: node.HTMLNode}
 					return
-				} // else {
-				// 	z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: node.Parent.DOM_ID, Data: node.HTMLNode}
-				// }
+				} else {
+					// check if attributes have changed
+
+					// 	z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: node.Parent.DOM_ID, Data: node.HTMLNode}
+				}
 				// z.UpdateQueue <- DOMUpdate{Operation: UpdateContent, ElementID: node.Parent.DOM_ID, Data: node}
 			} else {
-				if !reflect.DeepEqual(el.Attr, node.HTMLNode.Attr) {
-					// update attr
-					z.UpdateQueue <- DOMUpdate{Operation: UpdateAttr, ElementID: node.DOM_ID, Data: node.HTMLNode.Attr}
-				}
+				z.UpdateQueue <- DOMUpdate{Operation: SetAttrs, ElementID: node.DOM_ID, Data: node.HTMLNode.Attr}
 
 				currChild := node.FirstChild
 				for currChild != nil {

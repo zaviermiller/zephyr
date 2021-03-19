@@ -26,15 +26,14 @@ There are two main ways to develop an app with Zephyr: pure Go and the Zephyr de
 ---
 ## Features and Roadmap
 These are the concrete features currently offered and planned by the Zephyr API:
-- [x] Zephyr core runtime
 - [x] Reactive data API
 - [x] Component API
 - [x] Asynchronous runtime
 - [x] One-way data flow between components as props
 - [x] TinyGo support
-- [x] Vue-based DOM updates (initial pass)
+- [ ] Vue-based DOM updates (initial pass)
 - [ ] Two-way data flow with DOM and Component Events
-- [ ] Lifecycle hooks (OnInit, OnMount, OnRerender, Ondeactivate, On)
+- [ ] Lifecycle hooks (OnInit, OnMount, OnRerender, OnDeactivate, On)
 - [ ] Zephyr CLI tool (create, dev, build, test)
 - [ ] Width breakpoint APIs
 - [ ] Testing framework
@@ -48,9 +47,11 @@ These are the concrete features currently offered and planned by the Zephyr API:
 - [ ] Routing plugin (separate import)
 <!-- - [ ] Global state plugin (separate import) -->
 - [ ] GraphQL plugin (seperate import)
-- [ ] Content plugin (seperate import, requires SSG or SSR)
+- [ ] JS adapter plugin (for interacting with data in JS)
+- [ ] Content plugin (seperate import, requires SSG)
 - [ ] Very simple Material UI plugin (separate import)
 - [ ] Support build targets: SSR, SPA, SSG
+- [ ] Easy integration with existing Go server frameworks (Confetti, Gin, Chi, etc...)
 - [ ] Chrome dev tools
 - - [ ] Component inspector
 - - [ ] State manager

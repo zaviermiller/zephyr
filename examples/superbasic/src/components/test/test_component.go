@@ -16,14 +16,17 @@ type TestComponent struct {
 
 type ComponentData struct {
 	// Props
-	longArr   *[]int
+	longArr   zephyr.ZephyrData
 	arrLength func() interface{}
+
+	// data tests
+	// longArr ZephyrData
 
 	// Other data
 }
 
 func (tc *TestComponent) Init() {
-	tc.longArr = tc.BindProp("propArr").(*[]int)
+	// tc.BindProp("propArr", tc.longArr)
 	tc.arrLength = tc.BindProp("propComputed").(func() interface{})
 	fmt.Println(tc.longArr)
 }
@@ -37,3 +40,10 @@ func (tc *TestComponent) Render() *zephyr.VNode {
 		tc.ChildComponent(text_field.Component, map[string]interface{}{"initial": tc.arrLength}), /*.BindEvent("change", func(e zephyr.DOMEvent) { tc.setName(e.Target.Value) })*/
 	})
 }
+
+// tc.Element("div", nil, []*zephyr.VNode {
+// 	tc.Element("p", nil, []*zephyr.VNode{
+// string!
+// 		tc.DynamicText(longArr)
+// 	})
+// })
