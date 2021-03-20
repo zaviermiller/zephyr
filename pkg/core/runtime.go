@@ -4,7 +4,6 @@ package zephyr
 // with the Zephyr runtime.
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -109,8 +108,6 @@ func (z *ZephyrApp) Mount(querySelector string) {
 		case string:
 			renderedHTML = currentUpdate.Data.(string)
 		}
-
-		fmt.Println("test2142")
 
 		// handle different operations
 		switch currentUpdate.Operation {

@@ -70,14 +70,29 @@ func (c *BaseComponent) SetListenerUpdater(f func()) {
 	c.Listener.Updater = f
 }
 
-func (c *BaseComponent) BindProp(propName string) interface{} {
+func (c *BaseComponent) BindProp(propName string, destLocation interface{}) {
 	base := c.getBase()
 	val, ok := base.props[propName]
 	if !ok {
 		panic("Zephyr framework error")
 	}
 
-	return val
+	switch val.(type) {
+	case ZephyrData:
+		if _, ok := destLocation.(*ZephyrData); !ok {
+			panic("prop must be same type as local var")
+		}
+		ptr := destLocation.(*ZephyrData)
+		*ptr = val.(ZephyrData)
+		// TODO
+		// case func() interface{}:
+		// if _, ok := destLocation.(*func() interface); !ok {
+		// 	panic("prop must be same type as local var")
+		// }
+		// ptr := destLocation.(*ZephyrData)
+		// *ptr = val.(ZephyrData)
+
+	}
 
 }
 
@@ -126,9 +141,10 @@ func RenderWrapper(c Component) *VNode {
 }
 
 func recurSetListenerUpdater(node *VNode, ctx *ZephyrApp) {
-	if node == nil {
+	if node == nil || node.Listener == nil {
 		return
 	}
+	fmt.Println(node)
 	node.Listener.Updater = func() {
 		fmt.Println("updater called for ", node.DOM_ID)
 		go ctx.CompareDOM(node)
