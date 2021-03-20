@@ -82,6 +82,7 @@ func (z *ZephyrApp) Mount(querySelector string) {
 	// Render the DOM
 	z.RootNode = RenderWrapper(z.RootComponent)
 
+	// separate initial render?
 	go z.CompareDOM(z.RootNode)
 
 	// Start listening for DOM updates

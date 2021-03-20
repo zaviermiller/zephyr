@@ -3,7 +3,6 @@ package zephyr
 import (
 	"fmt"
 	"runtime"
-	"strings"
 )
 
 // Interfaces =-=
@@ -103,7 +102,6 @@ func (c *BaseComponent) NewLiveString(data string) ZephyrString {
 	// create a new ReactiveData
 	rd := NewRD(data)
 	rdPtr := &rd
-	fmt.Println(rd.Data)
 	// return func type with getter
 	rdGetter := ZephyrString(func() *ReactiveData {
 		return rdPtr
@@ -127,18 +125,14 @@ func (str ZephyrString) Set(newData interface{}) {
 }
 
 func (str ZephyrString) Value(l Listener) interface{} {
-	fmt.Println(l)
-	pc, _, _, _ := runtime.Caller(1)
-	funcName := runtime.FuncForPC(pc).Name()
-	lastSlash := strings.LastIndexByte(funcName, '/')
-	if lastSlash < 0 {
-		lastSlash = 0
-	}
-	lastDot := strings.LastIndexByte(funcName[lastSlash:], '.') + lastSlash
-
-	fmt.Printf("Package: %s\n", funcName[:lastDot])
-	fmt.Printf("Func:   %s\n", funcName[lastDot+1:])
 	rd := str()
+	if l == nil {
+		pc := make([]uintptr, 15)
+		n := runtime.Callers(2, pc)
+		frames := runtime.CallersFrames(pc[:n])
+		frame, _ := frames.Next()
+		fmt.Printf("%s:%d %s\n", frame.File, frame.Line, frame.Function)
+	}
 	rd.Register(l)
 
 	return str().Data

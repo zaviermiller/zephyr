@@ -3,9 +3,10 @@
 package main
 
 import (
+	"fmt"
+	"strconv"
 	"time"
 
-	"github.com/zaviermiller/zephyr/examples/superbasic/src/components/test"
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
 )
 
@@ -26,24 +27,24 @@ func (ac *AppComponent) Init() {
 
 	go func() {
 		for {
-			ac.stringTest.Set(ac.stringTest.Value(nil).(string) + " z")
+			ac.stringTest.Set(ac.stringTest.Value(nil).(string) + "z")
 			time.Sleep(1000 * time.Millisecond)
 		}
 	}()
 }
 
-// func (ac *AppComponent) StrLength() interface{} {
-// 	str, _ := ac.stringTest.Value(ac.Listener).(string)
-// 	fmt.Println(len(str))
-// 	return strconv.Itoa(len(str))
-// }
+func (ac *AppComponent) StrLength(l *zephyr.VNodeListener) interface{} {
+	str, _ := ac.stringTest.Value(l).(string)
+	fmt.Println(len(str))
+	return strconv.Itoa(len(str))
+}
 
 func (ac *AppComponent) Render() *zephyr.VNode {
 	return zephyr.Element("div", nil, []*zephyr.VNode{
 		zephyr.Element("h1", nil, []*zephyr.VNode{
-			zephyr.StaticText("penis balls"),
+			zephyr.DynamicText(ac.StrLength),
 		}),
-		ac.ChildComponent(test.Component, map[string]interface{}{"prop": ac.stringTest}),
+		// ac.ChildComponent(test.Component, map[string]interface{}{"prop": ac.stringTest}),
 		// test.Component.RenderWithProps()
 	})
 }

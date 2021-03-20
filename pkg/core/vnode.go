@@ -114,8 +114,10 @@ func (node *VNode) ToHTMLNode() *html.Node {
 		switch node.Content.(type) {
 		case ZephyrString:
 			htmlNode.Data = node.Content.(ZephyrString).string(node.Listener)
-		// some computed prop
-		case func() interface{}:
+		// computed MUST IMPLEMENT - custom type??
+		case func(*VNodeListener) interface{}:
+			f := node.Content.(func(*VNodeListener) interface{})
+			htmlNode.Data = f(node.Listener)
 			// TODO
 			// evaluated := node.Content.(func() interface{})()
 
@@ -129,6 +131,8 @@ func (node *VNode) ToHTMLNode() *html.Node {
 			// default:
 			// 	fmt.Println(node.DOM_ID+" func return type not supported by ToHTMLNode: ", reflect.TypeOf(evaluated).String())
 			// }
+		case string:
+			htmlNode.Data = node.Content.(string)
 		default:
 			fmt.Println(node.DOM_ID+" type not supported by ToHTMLNode: ", reflect.TypeOf(node.Content).String())
 		}
