@@ -7,9 +7,9 @@ Node struct exactly.
 package zephyr
 
 import (
-	"fmt" // TODO: remove
-	"math/rand"
-	"reflect" // TODO: rmeove
+	"fmt"       // TODO: remove
+	"math/rand" // TODO: rmeove
+	"reflect"
 	"strconv"
 
 	"golang.org/x/net/html"
@@ -66,7 +66,7 @@ type VNode struct {
 	// triggers a comparison whenever updated.
 	// May want to add a way to tell exactly WHAT
 	// needs to be updated.
-	Listener VNodeListener
+	Listener *VNodeListener
 
 	// HTMLNode is the Go representation of the currently rendered
 	// HTML tree
@@ -108,68 +108,70 @@ func arrToString(arr []int) string {
 	return str
 }
 
-// ToHTMLNode will build the HTML node that can then be
-// compared to the VNodes N
 func (node *VNode) ToHTMLNode() *html.Node {
-	htmlNode := &html.Node{}
+	htmlNode := &html.Node{Type: html.NodeType(node.NodeType)}
 	if node.NodeType == TextNode {
 		switch node.Content.(type) {
-		case string:
-			htmlNode = &html.Node{Data: node.Content.(string), Type: html.NodeType(node.NodeType)}
-
-		case *string:
-			htmlNode = &html.Node{Data: *node.Content.(*string), Type: html.NodeType(node.NodeType)}
-
-		case *[]int:
-			htmlNode = &html.Node{Data: arrToString(*node.Content.(*[]int)), Type: html.NodeType(node.NodeType)}
-		case []int:
-			// htmlNode = &html.Node{Data: arrToString(node.Content.([]int)), Type: html.NodeType(node.NodeType)}
-
+		case ZephyrString:
+			htmlNode.Data = node.Content.(ZephyrString).string(node.Listener)
 		// some computed prop
 		case func() interface{}:
-			evaluated := node.Content.(func() interface{})()
+			// TODO
+			// evaluated := node.Content.(func() interface{})()
 
-			switch evaluated.(type) {
-			case *string:
-				htmlNode = &html.Node{Data: evaluated.(string), Type: html.NodeType(node.NodeType)}
-			case *[]int:
-				htmlNode = &html.Node{Data: arrToString(*evaluated.(*[]int)), Type: html.NodeType(node.NodeType)}
-			case []int:
-				htmlNode = &html.Node{Data: arrToString(evaluated.([]int)), Type: html.NodeType(node.NodeType)}
-			default:
-				fmt.Println(node.DOM_ID+" func return type not supported by ToHTMLNode: ", reflect.TypeOf(evaluated).String())
-			}
+			// switch evaluated.(type) {
+			// case *string:
+			// 	htmlNode = &html.Node{Data: evaluated.(string), Type: html.NodeType(node.NodeType)}
+			// case *[]int:
+			// 	htmlNode = &html.Node{Data: arrToString(*evaluated.(*[]int)), Type: html.NodeType(node.NodeType)}
+			// case []int:
+			// 	htmlNode = &html.Node{Data: arrToString(evaluated.([]int)), Type: html.NodeType(node.NodeType)}
+			// default:
+			// 	fmt.Println(node.DOM_ID+" func return type not supported by ToHTMLNode: ", reflect.TypeOf(evaluated).String())
+			// }
 		default:
 			fmt.Println(node.DOM_ID+" type not supported by ToHTMLNode: ", reflect.TypeOf(node.Content).String())
 		}
 	} else if node.NodeType == ElementNode {
-		htmlNode = &html.Node{Data: node.Tag, Type: html.NodeType(node.NodeType)}
+		// htmlNode = &html.Node{Data: node.Tag, Type: html.NodeType(node.NodeType)}
+		htmlNode.Data = node.Tag
 	} else {
 		fmt.Println(node.NodeType)
 	}
 
 	attrs := []html.Attribute{}
-	for key, val := range node.Attrs {
-		switch val.(type) {
-		case string:
-			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(string)})
-		case func() interface{}:
-			// computed attrs can only be strings
-			// fmt.Println(attr.Value)
-			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(func() interface{})().(string)})
-		}
-	}
+	// for key, val := range node.Attrs {
+	// 	switch val.(type) {
+	// 	// other zdata handler
+	// 	case string:
+	// 		attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(string)})
+	// 	case func() interface{}:
+	// 		// computed attrs can only be strings
+	// 		// fmt.Println(attr.Value)
+	// 		attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(func() interface{})().(string)})
+	// 	}
+	// }
 	attrs = append(attrs, html.Attribute{Key: "id", Val: node.DOM_ID})
+	htmlNode.Attr = attrs
+	node.HTMLNode = htmlNode
+	fmt.Println(node)
+	return htmlNode
+}
+
+// ToHTMLTree builds the HTMl node and its children
+// used for first runs.
+func (node *VNode) ToHTMLTree() *html.Node {
+	htmlNode := node.ToHTMLNode()
 	currChild := node.FirstChild
 	var htmlChild *html.Node
 	for currChild != nil {
 		if htmlChild != nil {
-			htmlChild.NextSibling = currChild.ToHTMLNode()
+			htmlChild.NextSibling = currChild.ToHTMLTree()
 			prev := htmlChild
 			htmlChild = htmlChild.NextSibling
 			htmlChild.PrevSibling = prev
 		} else {
-			htmlChild = currChild.ToHTMLNode()
+			htmlChild = currChild.ToHTMLTree()
 		}
 		if currChild.PrevSibing == nil {
 			htmlNode.FirstChild = htmlChild
@@ -178,7 +180,6 @@ func (node *VNode) ToHTMLNode() *html.Node {
 		}
 		currChild = currChild.NextSibling
 	}
-	htmlNode.Attr = attrs
 	node.HTMLNode = htmlNode
 	// fmt.Println(htmlNode)
 	return htmlNode
@@ -212,7 +213,7 @@ func (parent *BaseComponent) ChildComponent(c Component, props map[string]interf
 
 // Element will create VNodes for the element and all of its children
 func Element(tag string, attrs map[string]interface{}, children []*VNode) *VNode {
-	vnode := VNode{NodeType: ElementNode, Tag: tag, DOM_ID: GetElID(tag), Component: false}
+	vnode := VNode{NodeType: ElementNode, Tag: tag, DOM_ID: GetElID(tag), Component: false, Listener: &VNodeListener{}}
 	var prev *VNode = nil
 	var next *VNode = nil
 	static := true
@@ -240,9 +241,12 @@ func Element(tag string, attrs map[string]interface{}, children []*VNode) *VNode
 		switch attr.(type) {
 		// handle by type
 		case ZephyrString:
-			vnode.Attrs[key], _ = attr.(ZephyrString)(vnode.Listener)
+			vnode.Attrs[key] = attr.(ZephyrData).Value(vnode.Listener)
 
 		case func() interface{}:
+			fmt.Println("TEst")
+		default:
+			vnode.Attrs[key] = attr
 		}
 	}
 	vnode.Static = static
@@ -256,12 +260,13 @@ func StaticText(content string) *VNode {
 }
 
 // works with computed props!
-func DynamicText(dynamicData ZephyrData) *VNode {
+func DynamicText(dynamicData interface{}) *VNode {
 	// dynamicVal := evalFunc()
-
-	// type stuff
-	vnode := VNode{NodeType: TextNode, Content: dynamicData, Component: false, Static: false}
-	return &vnode
+	var vnode *VNode
+	vnode = &VNode{NodeType: TextNode, Component: false, Static: false, DOM_ID: GetElID("dynamicText")}
+	vnode.Listener = &VNodeListener{id: vnode.DOM_ID} // something idk
+	vnode.Content = dynamicData
+	return vnode
 	// switch dynamicVal.(type) {
 	// case *[]int:
 	// default:

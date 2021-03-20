@@ -8,6 +8,7 @@
 package zephyr
 
 import (
+	"fmt"
 	"syscall/js"
 )
 
@@ -20,6 +21,7 @@ const (
 	Delete
 	UpdateAttr
 	SetAttrs
+	RemoveAttr
 	UpdateContent
 	OverwriteInnerHTML
 )
@@ -45,7 +47,7 @@ func (d Document) QuerySelector(selector string) js.Value {
 
 func (d Document) GetByID(id string) js.Value {
 	el := d.QuerySelector("#" + id)
-
+	// teehee
 	return el
 }
 
@@ -60,13 +62,24 @@ func SetAttribute(el js.Value, key, val string) {
 	el.Call("setAttribute", key, val)
 }
 
-// CompareDOM will compare the currently rendered subtree
+func RemoveAttribute(el js.Value, key string) {
+	// js.Global().Get("console").Call("dir", el)
+	el.Call("removeAttribute", key)
+}
+
+// CompareDOM will compare the currently rendered component subtree
 // and a newly generated one. It sends over any updates through
 // the UpdateQueue, where they will then be processed. The
 // currently rendered DOM is stored in the DOMNodes map, which
 // allows for quick reads for comparisons.
 func (z *ZephyrApp) CompareDOM(root *VNode) {
-	root.ToHTMLNode()
+	fmt.Println("node: ", root.DOM_ID)
+	if root.DOM_ID == z.RootNode.DOM_ID {
+		fmt.Println("\nInitial render...\n\n")
+		root.ToHTMLTree()
+	} else {
+		root.ToHTMLNode()
+	}
 
 	var RecurComp func(node VNode)
 
@@ -84,26 +97,31 @@ func (z *ZephyrApp) CompareDOM(root *VNode) {
 					z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: z.AnchorSelector, Data: node.HTMLNode}
 					return
 				} else {
+					// render regular node
 					// check if attributes have changed
-
 					// 	z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: node.Parent.DOM_ID, Data: node.HTMLNode}
 				}
 				// z.UpdateQueue <- DOMUpdate{Operation: UpdateContent, ElementID: node.Parent.DOM_ID, Data: node}
 			} else {
-				z.UpdateQueue <- DOMUpdate{Operation: SetAttrs, ElementID: node.DOM_ID, Data: node.HTMLNode.Attr}
-
-				currChild := node.FirstChild
-				for currChild != nil {
-					RecurComp(*currChild)
-					currChild = currChild.NextSibling
+				for i, val := range el.Attr {
+					if _, ok := node.Attrs[val.Key]; !ok {
+						// remove attr
+						z.UpdateQueue <- DOMUpdate{Operation: RemoveAttr, ElementID: node.DOM_ID, Data: node.HTMLNode.Attr[i]}
+						continue
+					}
+					// set arr
+					z.UpdateQueue <- DOMUpdate{Operation: UpdateAttr, ElementID: node.DOM_ID, Data: node.HTMLNode.Attr[i]}
 				}
+
+				// currChild := node.FirstChild
+				// for currChild != nil {
+				// 	RecurComp(*currChild)
+				// 	currChild = currChild.NextSibling
+				// }
 			}
 		} else if node.NodeType == TextNode {
 			otherContent, ok := z.DOMNodes[node.Parent.DOM_ID]
-			if !ok {
-				panic("error")
-			}
-			if otherContent.Data != node.HTMLNode.Data {
+			if !ok || otherContent.Data != node.HTMLNode.Data {
 				// update dom content
 				z.UpdateQueue <- DOMUpdate{Operation: UpdateContent, ElementID: node.Parent.DOM_ID, Data: node.HTMLNode.Data}
 			}

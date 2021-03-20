@@ -4,6 +4,7 @@ package zephyr
 // with the Zephyr runtime.
 import (
 	"bytes"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -82,6 +83,8 @@ func (z *ZephyrApp) Mount(querySelector string) {
 	// Render the DOM
 	z.RootNode = RenderWrapper(z.RootComponent)
 
+	go z.CompareDOM(z.RootNode)
+
 	// Start listening for DOM updates
 	for {
 		// fmt.Println("waiting for update")
@@ -90,6 +93,7 @@ func (z *ZephyrApp) Mount(querySelector string) {
 
 		// find element in map or on page and insert into map
 		el, ok := z.DOMElements[currentUpdate.ElementID]
+		// is element alredy on page?
 		if !ok {
 			el = Document(z.Anchor).GetByID(currentUpdate.ElementID)
 			z.DOMElements[currentUpdate.ElementID] = el
@@ -105,6 +109,8 @@ func (z *ZephyrApp) Mount(querySelector string) {
 		case string:
 			renderedHTML = currentUpdate.Data.(string)
 		}
+
+		fmt.Println("test2142")
 
 		// handle different operations
 		switch currentUpdate.Operation {
@@ -124,6 +130,9 @@ func (z *ZephyrApp) Mount(querySelector string) {
 			for key, val := range mapData {
 				SetAttribute(el, key, val)
 			}
+		case RemoveAttr:
+			// TODO
+			// RemoveAttr(el, currentUpdate.Data)
 		case UpdateContent:
 			// fmt.Println("Content updated: ", currentUpdate.ElementID)
 			// fmt.Println("updating ", currentUpdate.ElementID)

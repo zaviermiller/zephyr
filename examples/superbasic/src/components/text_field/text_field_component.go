@@ -22,3 +22,5 @@ func (c *TextFieldComponent) Init() {
 func (c *TextFieldComponent) Render() *zephyr.VNode {
 	return zephyr.Element("input", map[string]interface{}{"type": "text", "value": c.value}, nil) /*.BindEvent("change", func(e zephyr.DOMEvent) { tc.setName(e.Target.Value) })*/
 }
+
+// zephyr.Element("")

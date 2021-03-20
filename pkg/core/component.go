@@ -1,6 +1,7 @@
 package zephyr
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -107,6 +108,10 @@ func RenderWrapper(c Component) *VNode {
 	node := c.Render()
 	base.Node = node
 	// create listener for root changes
+	// listener for attr changes
+	// listener for text changes
+	// listener for prop changes
+	// listener for computed changes
 	ListenerFunc := func() {
 		// vdom := app.RootComponent.Render()
 		// fmt.Println("update detected! new vdom: " + func() string { b, _ := json.Marshal(app.RootNode); return string(b) }())
@@ -114,14 +119,25 @@ func RenderWrapper(c Component) *VNode {
 	}
 	// move?
 	base.SetListenerUpdater(ListenerFunc)
-	// if base.Node != nil {
-	// 	// if base.CompareData(base.Node) {
-	// 	// 	return *base.Node
-	// 	// }
-	// }
-	// node.Component = c
+
+	recurSetListenerUpdater(base.Node, base.Context)
 
 	return node
+}
+
+func recurSetListenerUpdater(node *VNode, ctx *ZephyrApp) {
+	if node == nil {
+		return
+	}
+	node.Listener.Updater = func() {
+		fmt.Println("updater called for ", node.DOM_ID)
+		go ctx.CompareDOM(node)
+	}
+	curr := node.FirstChild
+	for curr != nil {
+		recurSetListenerUpdater(curr, ctx)
+		curr = curr.NextSibling
+	}
 }
 
 func UpdateWrapper(c Component) {
@@ -137,7 +153,7 @@ func NewComponent(c Component) Component {
 		// fmt.Println(componentId)
 	} else {
 		base.interalID = componentId[1]
-		base.Listener = ComponentListener{}
+		base.Listener = ComponentListener{id: base.interalID}
 	}
 
 	return c
