@@ -144,7 +144,9 @@ func recurSetListenerUpdater(node *VNode, ctx *ZephyrApp) {
 		return
 	}
 	node.Listener.Updater = func() {
-		go ctx.CompareNode(node)
+		if ctx.RootNode != nil {
+			go ctx.CompareNode(node)
+		}
 	}
 	curr := node.FirstChild
 	for curr != nil {

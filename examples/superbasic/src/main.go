@@ -27,7 +27,7 @@ func (ac *AppComponent) Init() {
 	go func() {
 		for {
 			ac.UpdateStr(ac.stringTest.Value(nil).(string) + "z")
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(1 * time.Millisecond)
 		}
 	}()
 }

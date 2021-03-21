@@ -9,6 +9,7 @@ package zephyr
 
 import (
 	"fmt"
+	"strconv"
 	"syscall/js"
 )
 
@@ -17,7 +18,8 @@ type Document js.Value
 type DOMOperation int
 
 const (
-	Insert DOMOperation = iota
+	InitialRender DOMOperation = iota
+	Insert
 	Delete
 	UpdateAttr
 	SetAttrs
@@ -52,8 +54,8 @@ func (d Document) GetByID(id string) js.Value {
 }
 
 func SetInnerHTML(el js.Value, content string) {
-	// js.Global().Get("console").Call("dir", el)
-	// fmt.Println("set ^ to ", content)
+	js.Global().Get("console").Call("dir", el)
+	fmt.Println("set ^ to ", content)
 	el.Set("innerHTML", content)
 }
 
@@ -73,10 +75,12 @@ func RemoveAttribute(el js.Value, key string) {
 // currently rendered DOM is stored in the DOMNodes map, which
 // allows for quick reads for comparisons.
 func (z *ZephyrApp) CompareNode(root *VNode) {
-	fmt.Println("node: ", root.DOM_ID)
+	// fmt.Println("node: ", root.DOM_ID)
 	if root.DOM_ID == z.RootNode.DOM_ID {
-		fmt.Println("\nInitial render...\n\n")
 		root.ToHTMLTree()
+		z.UpdateQueue <- DOMUpdate{Operation: InitialRender, ElementID: z.AnchorSelector, Data: root.HTMLNode}
+		fmt.Println("\nInitial render...\n\n")
+		return
 	} else {
 		root.ToHTMLNode()
 	}
@@ -92,10 +96,19 @@ func (z *ZephyrApp) CompareNode(root *VNode) {
 			// check if node exists already
 			if el, ok := z.DOMNodes[node.DOM_ID]; !ok {
 				z.DOMNodes[node.DOM_ID] = *node.HTMLNode
+				el = *node.HTMLNode
 				// initial root render
-				if _, ok := z.DOMElements[node.DOM_ID]; !ok && node.DOM_ID == root.DOM_ID {
-					z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: z.AnchorSelector, Data: node.HTMLNode}
-					return
+				if _, ok := z.DOMElements[node.DOM_ID]; !ok {
+					domElem := GetDocument().GetByID(node.DOM_ID)
+					if domElem.Equal(js.Null()) {
+						if node.HTMLNode == nil {
+							return
+						}
+						// insert at parent if it doesnt exist on dom but is ready
+						z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: node.Parent.DOM_ID, Data: node.HTMLNode}
+						return
+					}
+					z.DOMElements[node.DOM_ID] = domElem
 				} else {
 					// render regular node
 					// check if attributes have changed
@@ -103,11 +116,11 @@ func (z *ZephyrApp) CompareNode(root *VNode) {
 				}
 				// z.UpdateQueue <- DOMUpdate{Operation: UpdateContent, ElementID: node.Parent.DOM_ID, Data: node}
 			} else {
-				for i, val := range el.Attr {
+				for _, val := range el.Attr {
 					_, ok := node.Attrs[val.Key]
 					if !ok {
 						// remove attr
-						z.UpdateQueue <- DOMUpdate{Operation: RemoveAttr, ElementID: node.DOM_ID, Data: node.HTMLNode.Attr[i]}
+						z.UpdateQueue <- DOMUpdate{Operation: RemoveAttr, ElementID: node.DOM_ID, Data: val}
 						continue
 					}
 					// set arr
@@ -116,7 +129,8 @@ func (z *ZephyrApp) CompareNode(root *VNode) {
 							if newVal.Val == val.Val {
 								break
 							} else {
-								fmt.Println("mismatched attr, sending update: ", newVal.Val, val.Val)
+								// fmt.Println("mismatched attr, sending update: ", newVal.Val, val.Val)
+								// z.QueueUpdate(UpdateAttr, node.DOM_ID, newVal)
 								z.UpdateQueue <- DOMUpdate{Operation: UpdateAttr, ElementID: node.DOM_ID, Data: newVal}
 								break
 							}
@@ -142,4 +156,15 @@ func (z *ZephyrApp) CompareNode(root *VNode) {
 	}
 
 	RecurComp(*root)
+	fmt.Println("DONE")
+}
+
+func (z *ZephyrApp) QueueUpdate(op DOMOperation, id string, data interface{}) {
+	updateID := strconv.Itoa(int(op)) + "." + id
+	val, ok := z.QueueProxy[updateID]
+	if !ok {
+		z.QueueProxy[updateID] = DOMUpdate{Operation: op, ElementID: id, Data: data}
+		return
+	}
+	val.Data = data
 }

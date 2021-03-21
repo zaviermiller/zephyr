@@ -38,7 +38,9 @@ const (
 type ZephyrAttr struct {
 	// Namespace is currently unused
 	Namespace, Key string
-	Value          interface{}
+	// Value should be a regular Go
+	// data type.
+	Value interface{}
 }
 
 // VNode struct is a simple intermediary between the stdlib html.Node
@@ -115,23 +117,25 @@ func (node *VNode) ToHTMLNode() *html.Node {
 		case ZephyrString:
 			htmlNode.Data = node.Content.(ZephyrString).string(node.Listener)
 		// computed MUST IMPLEMENT - custom type??
-		case func(*VNodeListener) interface{}:
-			//  := node.Content.(func(*VNodeListener) interface{})
-			// TODO
-			evaluated := node.Content.(func(*VNodeListener) interface{})(node.Listener)
+		// case func(*VNodeListener) interface{}:
+		// 	//  := node.Content.(func(*VNodeListener) interface{})
+		// 	// TODO
+		// 	evaluated := node.Content.(func(*VNodeListener) interface{})(node.Listener)
 
-			switch evaluated.(type) {
-			case string:
-				htmlNode = &html.Node{Data: evaluated.(string), Type: html.NodeType(node.NodeType)}
-			case int, int8, int16, int32, int64, uint:
-				htmlNode = &html.Node{Data: strconv.Itoa(evaluated.(int)), Type: html.NodeType(node.NodeType)}
-			case []int:
-				htmlNode = &html.Node{Data: arrToString(evaluated.([]int)), Type: html.NodeType(node.NodeType)}
-			default:
-				fmt.Println(node.DOM_ID+" func return type not supported by ToHTMLNode: ", reflect.TypeOf(evaluated).String())
-			}
+		// 	switch evaluated.(type) {
+		// 	case string:
+		// 		htmlNode = &html.Node{Data: evaluated.(string), Type: html.NodeType(node.NodeType)}
+		// 	case int, int8, int16, int32, int64, uint:
+		// 		htmlNode = &html.Node{Data: strconv.Itoa(evaluated.(int)), Type: html.NodeType(node.NodeType)}
+		// 	case []int:
+		// 		htmlNode = &html.Node{Data: arrToString(evaluated.([]int)), Type: html.NodeType(node.NodeType)}
+		// 	default:
+		// 		fmt.Println(node.DOM_ID+" func return type not supported by ToHTMLNode: ", reflect.TypeOf(evaluated).String())
+		// 	}
 		case string:
 			htmlNode.Data = node.Content.(string)
+		case int:
+			htmlNode.Data = strconv.Itoa(node.Content.(int))
 		default:
 			fmt.Println(node.DOM_ID+" type not supported by ToHTMLNode: ", reflect.TypeOf(node.Content).String())
 		}
@@ -148,10 +152,14 @@ func (node *VNode) ToHTMLNode() *html.Node {
 		// other zdata handler
 		case string:
 			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(string)})
-		case func(*VNodeListener) interface{}:
-			// computed attrs can only be strings
-			// fmt.Println(attr.Value)
-			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(func(*VNodeListener) interface{})(node.Listener).(string)})
+		// case func(*VNodeListener) interface{}:
+		// computed attrs can only be strings
+		// fmt.Println(attr.Value)
+		// attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(func(*VNodeListener) interface{})(node.Listener).(string)})
+		case int:
+			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: strconv.Itoa(val.(int))})
+		default:
+			panic("Please use a string")
 		}
 	}
 	attrs = append(attrs, html.Attribute{Key: "id", Val: node.DOM_ID})
@@ -183,7 +191,6 @@ func (node *VNode) ToHTMLTree() *html.Node {
 		currChild = currChild.NextSibling
 	}
 	node.HTMLNode = htmlNode
-	// fmt.Println(htmlNode)
 	return htmlNode
 }
 
@@ -242,16 +249,18 @@ func Element(tag string, attrs map[string]interface{}, children []*VNode) *VNode
 	for key, attr := range attrs {
 		switch attr.(type) {
 		// handle by type
-		case ZephyrString:
-			vnode.Attrs[key] = attr.(ZephyrData).Value(vnode.Listener)
+		case ZephyrData:
+			vnode.Attrs[key] = attr.(ZephyrData).string(vnode.Listener)
 
-		case func() interface{}:
-			fmt.Println("TEst")
+		case func(*VNodeListener) interface{}:
+			vnode.Attrs[key] = attr.(func(*VNodeListener) interface{})(vnode.Listener)
 		default:
-			vnode.Attrs[key] = attr
+			// vnode.Attrs[key] = attr
+			panic("type not supported")
 		}
 	}
 	vnode.Static = static
+	fmt.Println(vnode.Attrs)
 	return &vnode
 }
 
@@ -267,7 +276,13 @@ func DynamicText(dynamicData interface{}) *VNode {
 	var vnode *VNode
 	vnode = &VNode{NodeType: TextNode, Component: false, Static: false, DOM_ID: GetElID("dynamicText")}
 	vnode.Listener = &VNodeListener{id: vnode.DOM_ID} // something idk
-	vnode.Content = dynamicData
+	switch dynamicData.(type) {
+	case ZephyrData:
+		vnode.Content = dynamicData.(ZephyrData).string(vnode.Listener)
+	case func(*VNodeListener) interface{}:
+		vnode.Content = dynamicData.(func(*VNodeListener) interface{})(vnode.Listener)
+	}
+	fmt.Println(vnode)
 	return vnode
 	// switch dynamicVal.(type) {
 	// case *[]int:
