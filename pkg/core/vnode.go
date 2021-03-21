@@ -116,21 +116,20 @@ func (node *VNode) ToHTMLNode() *html.Node {
 			htmlNode.Data = node.Content.(ZephyrString).string(node.Listener)
 		// computed MUST IMPLEMENT - custom type??
 		case func(*VNodeListener) interface{}:
-			f := node.Content.(func(*VNodeListener) interface{})
-			htmlNode.Data = f(node.Listener)
+			//  := node.Content.(func(*VNodeListener) interface{})
 			// TODO
-			// evaluated := node.Content.(func() interface{})()
+			evaluated := node.Content.(func(*VNodeListener) interface{})(node.Listener)
 
-			// switch evaluated.(type) {
-			// case *string:
-			// 	htmlNode = &html.Node{Data: evaluated.(string), Type: html.NodeType(node.NodeType)}
-			// case *[]int:
-			// 	htmlNode = &html.Node{Data: arrToString(*evaluated.(*[]int)), Type: html.NodeType(node.NodeType)}
-			// case []int:
-			// 	htmlNode = &html.Node{Data: arrToString(evaluated.([]int)), Type: html.NodeType(node.NodeType)}
-			// default:
-			// 	fmt.Println(node.DOM_ID+" func return type not supported by ToHTMLNode: ", reflect.TypeOf(evaluated).String())
-			// }
+			switch evaluated.(type) {
+			case string:
+				htmlNode = &html.Node{Data: evaluated.(string), Type: html.NodeType(node.NodeType)}
+			case int, int8, int16, int32, int64, uint:
+				htmlNode = &html.Node{Data: strconv.Itoa(evaluated.(int)), Type: html.NodeType(node.NodeType)}
+			case []int:
+				htmlNode = &html.Node{Data: arrToString(evaluated.([]int)), Type: html.NodeType(node.NodeType)}
+			default:
+				fmt.Println(node.DOM_ID+" func return type not supported by ToHTMLNode: ", reflect.TypeOf(evaluated).String())
+			}
 		case string:
 			htmlNode.Data = node.Content.(string)
 		default:
@@ -144,21 +143,20 @@ func (node *VNode) ToHTMLNode() *html.Node {
 	}
 
 	attrs := []html.Attribute{}
-	// for key, val := range node.Attrs {
-	// 	switch val.(type) {
-	// 	// other zdata handler
-	// 	case string:
-	// 		attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(string)})
-	// 	case func() interface{}:
-	// 		// computed attrs can only be strings
-	// 		// fmt.Println(attr.Value)
-	// 		attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(func() interface{})().(string)})
-	// 	}
-	// }
+	for key, val := range node.Attrs {
+		switch val.(type) {
+		// other zdata handler
+		case string:
+			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(string)})
+		case func(*VNodeListener) interface{}:
+			// computed attrs can only be strings
+			// fmt.Println(attr.Value)
+			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(func(*VNodeListener) interface{})(node.Listener).(string)})
+		}
+	}
 	attrs = append(attrs, html.Attribute{Key: "id", Val: node.DOM_ID})
 	htmlNode.Attr = attrs
 	node.HTMLNode = htmlNode
-	fmt.Println(node)
 	return htmlNode
 }
 

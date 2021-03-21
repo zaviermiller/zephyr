@@ -1,7 +1,6 @@
 package zephyr
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 )
@@ -130,7 +129,7 @@ func RenderWrapper(c Component) *VNode {
 	ListenerFunc := func() {
 		// vdom := app.RootComponent.Render()
 		// fmt.Println("update detected! new vdom: " + func() string { b, _ := json.Marshal(app.RootNode); return string(b) }())
-		go base.Context.CompareDOM(base.Node)
+		go base.Context.CompareNode(base.Node)
 	}
 	// move?
 	base.SetListenerUpdater(ListenerFunc)
@@ -144,10 +143,8 @@ func recurSetListenerUpdater(node *VNode, ctx *ZephyrApp) {
 	if node == nil || node.Listener == nil {
 		return
 	}
-	fmt.Println(node)
 	node.Listener.Updater = func() {
-		fmt.Println("updater called for ", node.DOM_ID)
-		go ctx.CompareDOM(node)
+		go ctx.CompareNode(node)
 	}
 	curr := node.FirstChild
 	for curr != nil {

@@ -83,7 +83,7 @@ func (z *ZephyrApp) Mount(querySelector string) {
 	z.RootNode = RenderWrapper(z.RootComponent)
 
 	// separate initial render?
-	go z.CompareDOM(z.RootNode)
+	go z.CompareNode(z.RootNode)
 
 	// Start listening for DOM updates
 	for {
@@ -138,6 +138,13 @@ func (z *ZephyrApp) Mount(querySelector string) {
 			// case OverwriteInnerHTML:
 			// 	el := Document(z.Anchor).QuerySelector(currentUpdate.ElementID)
 			// 	SetInnerHTML(el, currentUpdate.Data.(string))
+		}
+		if currentUpdate.ElementID == z.AnchorSelector {
+			// el = Document(z.Anchor).QuerySelector(currentUpdate.ElementID)
+			// z.DOMElements[currentUpdate.ElementID] = el
+		} else {
+			el = Document(z.Anchor).GetByID(currentUpdate.ElementID)
+			z.DOMElements[currentUpdate.ElementID] = el
 		}
 	}
 }

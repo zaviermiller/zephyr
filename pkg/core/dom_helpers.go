@@ -67,12 +67,12 @@ func RemoveAttribute(el js.Value, key string) {
 	el.Call("removeAttribute", key)
 }
 
-// CompareDOM will compare the currently rendered component subtree
+// CompareNode will compare the currently rendered component subtree
 // and a newly generated one. It sends over any updates through
 // the UpdateQueue, where they will then be processed. The
 // currently rendered DOM is stored in the DOMNodes map, which
 // allows for quick reads for comparisons.
-func (z *ZephyrApp) CompareDOM(root *VNode) {
+func (z *ZephyrApp) CompareNode(root *VNode) {
 	fmt.Println("node: ", root.DOM_ID)
 	if root.DOM_ID == z.RootNode.DOM_ID {
 		fmt.Println("\nInitial render...\n\n")
@@ -104,13 +104,24 @@ func (z *ZephyrApp) CompareDOM(root *VNode) {
 				// z.UpdateQueue <- DOMUpdate{Operation: UpdateContent, ElementID: node.Parent.DOM_ID, Data: node}
 			} else {
 				for i, val := range el.Attr {
-					if _, ok := node.Attrs[val.Key]; !ok {
+					_, ok := node.Attrs[val.Key]
+					if !ok {
 						// remove attr
 						z.UpdateQueue <- DOMUpdate{Operation: RemoveAttr, ElementID: node.DOM_ID, Data: node.HTMLNode.Attr[i]}
 						continue
 					}
 					// set arr
-					z.UpdateQueue <- DOMUpdate{Operation: UpdateAttr, ElementID: node.DOM_ID, Data: node.HTMLNode.Attr[i]}
+					for _, newVal := range node.HTMLNode.Attr {
+						if newVal.Key == val.Key {
+							if newVal.Val == val.Val {
+								break
+							} else {
+								fmt.Println("mismatched attr, sending update: ", newVal.Val, val.Val)
+								z.UpdateQueue <- DOMUpdate{Operation: UpdateAttr, ElementID: node.DOM_ID, Data: newVal}
+								break
+							}
+						}
+					}
 				}
 
 				// currChild := node.FirstChild
@@ -126,6 +137,8 @@ func (z *ZephyrApp) CompareDOM(root *VNode) {
 				z.UpdateQueue <- DOMUpdate{Operation: UpdateContent, ElementID: node.Parent.DOM_ID, Data: node.HTMLNode.Data}
 			}
 		}
+
+		z.DOMNodes[node.DOM_ID] = *node.HTMLNode
 	}
 
 	RecurComp(*root)

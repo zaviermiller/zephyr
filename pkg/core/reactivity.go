@@ -1,10 +1,5 @@
 package zephyr
 
-import (
-	"fmt"
-	"runtime"
-)
-
 // Interfaces =-=
 // The following are interfaces that are implemented by
 // the reactive data.
@@ -119,19 +114,17 @@ func (str ZephyrString) Set(newData interface{}) {
 	// setter func?
 	rd := str()
 	rd.Data = val
-	fmt.Println("set: ", rd.Data)
-	fmt.Println("notifying children: ", rd.Listeners)
 	rd.Notify()
 }
 
 func (str ZephyrString) Value(l Listener) interface{} {
 	rd := str()
 	if l == nil {
-		pc := make([]uintptr, 15)
-		n := runtime.Callers(2, pc)
-		frames := runtime.CallersFrames(pc[:n])
-		frame, _ := frames.Next()
-		fmt.Printf("%s:%d %s\n", frame.File, frame.Line, frame.Function)
+		// pc := make([]uintptr, 15)
+		// n := runtime.Callers(2, pc)
+		// frames := runtime.CallersFrames(pc[:n])
+		// frame, _ := frames.Next()
+		// fmt.Printf("nil listener - %s:%d %s\n", frame.File, frame.Line, frame.Function)
 	}
 	rd.Register(l)
 
@@ -143,7 +136,6 @@ func (str ZephyrString) Value(l Listener) interface{} {
 func (str ZephyrString) string(l Listener) string {
 	rd := str()
 	rd.Register(l)
-	fmt.Println("got string, set listener ", rd.Listeners, l)
 	return rd.Data.(string)
 }
 

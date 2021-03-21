@@ -28,10 +28,29 @@ func (tc *TestComponent) Init() {
 	// fmt.Println(tc.longArr)
 }
 
+func (tc *TestComponent) calculatedStyle(l *zephyr.VNodeListener) interface{} {
+	if len(tc.zString.Value(l).(string)) > 20 {
+		return "color: red;"
+	} else {
+		return "color: black;"
+	}
+}
+
+func (tc *TestComponent) calculatedClass(l *zephyr.VNodeListener) interface{} {
+	if len(tc.zString.Value(l).(string)) > 30 {
+		return "hidden"
+	} else {
+		return ""
+	}
+}
+
 func (tc *TestComponent) Render() *zephyr.VNode {
 	// fmt.Println(reflect.TypeOf(tc.longArr).String())
 	return zephyr.Element("div", nil, []*zephyr.VNode{
-		zephyr.Element("p", nil, []*zephyr.VNode{
+		zephyr.Element("p", map[string]interface{}{
+			"style": tc.calculatedStyle,
+			"class": tc.calculatedClass,
+		}, []*zephyr.VNode{
 			zephyr.DynamicText(tc.zString),
 		}),
 		// tc.ChildComponent(text_field.Component, map[string]interface{}{"initial": tc.arrLength}), /*.BindEvent("change", func(e zephyr.DOMEvent) { tc.setName(e.Target.Value) })*/
