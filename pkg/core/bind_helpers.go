@@ -21,7 +21,7 @@ func (c *BaseComponent) BindInt(intPtr *int, args ...interface{}) func(int) {
 
 	// bind the component listener to the variable's reactive data
 	// (really just need the interface impl, can prolly deprecate RD)
-	rd := NewRD(*intPtr)
+	rd := NewDep(*intPtr)
 
 	// though, I do use it here for type safety, but this line could
 	// be dumb lmao. i need to figure out when to be seemingly overexplicity
@@ -55,7 +55,7 @@ func (c *BaseComponent) BindString(strPtr *string, args ...interface{}) func(str
 
 	// bind the component listener to the variable's reactive data
 	// (really just need the interface impl, can prolly deprecate RD)
-	rd := NewRD(*strPtr)
+	rd := NewDep(*strPtr)
 
 	// though, I do use it here for type safety, but this line could
 	// be dumb lmao. i need to figure out when to be seemingly overexplicity
@@ -83,7 +83,7 @@ func (c *BaseComponent) BindList(arrLocation interface{}) func(interface{}) {
 	case *[]int:
 		// bind the component listener to the variable's reactive data
 		// (really just need the interface impl, can prolly deprecate RD)
-		rd := NewRD(*arrLocation.(*[]int))
+		rd := NewDep(*arrLocation.(*[]int))
 
 		// though, I do use it here for type safety, but this line could
 		// be dumb lmao. i need to figure out when to be seemingly overexplicity
@@ -104,7 +104,7 @@ func (c *BaseComponent) BindList(arrLocation interface{}) func(interface{}) {
 	case *[]string:
 		// bind the component listener to the variable's reactive data
 		// (really just need the interface impl, can prolly deprecate RD)
-		rd := NewRD(*arrLocation.(*[]string))
+		rd := NewDep(*arrLocation.(*[]string))
 
 		// though, I do use it here for type safety, but this line could
 		// be dumb lmao. i need to figure out when to be seemingly overexplicity

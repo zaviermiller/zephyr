@@ -30,6 +30,10 @@ const (
 	// If so, this package makes no guarantee that the rendered HTML is secure
 	// (from e.g. Cross Site Scripting attacks) or well-formed.
 	RawNode
+
+	// The following are types that don't follow the Go HTML package. They are
+	// used for conditional and iterative rendering
+	ConditionalNode
 )
 
 // ZephyrAttrs represents the HTML attributes for
@@ -81,6 +85,16 @@ type VNode struct {
 	Static    bool
 	Comment   bool
 	Component bool
+
+	// Special fields - may want to interface it up
+	ConditionalRenders []ConditionalRender
+	CurrentCondition   int
+	ConditionUpdated   bool
+}
+
+type ConditionalRender struct {
+	Condition interface{}
+	Render    *VNode
 }
 
 // the js part of this is very very temporary, in fact the whole function is
@@ -100,38 +114,29 @@ type VNode struct {
 // 	}
 // 	node.Attrs = zAttrs
 // }
-
-func arrToString(arr []int) string {
-	str := "[ "
-	for _, item := range arr {
-		str += strconv.Itoa(item) + " "
-	}
-	str += "]"
-	return str
-}
-
 func (node *VNode) ToHTMLNode() *html.Node {
 	htmlNode := &html.Node{Type: html.NodeType(node.NodeType)}
-	if node.NodeType == TextNode {
+	switch node.NodeType {
+	case TextNode:
 		switch node.Content.(type) {
-		case ZephyrString:
-			htmlNode.Data = node.Content.(ZephyrString).string(node.Listener)
+		case LiveData:
+			htmlNode.Data = node.Content.(LiveData).string(node.Listener)
 		// computed MUST IMPLEMENT - custom type??
-		// case func(*VNodeListener) interface{}:
-		// 	//  := node.Content.(func(*VNodeListener) interface{})
-		// 	// TODO
-		// 	evaluated := node.Content.(func(*VNodeListener) interface{})(node.Listener)
+		case func(*VNodeListener) interface{}:
+			//  := node.Content.(func(*VNodeListener) interface{})
+			// TODO
+			evaluated := node.Content.(func(*VNodeListener) interface{})(node.Listener)
 
-		// 	switch evaluated.(type) {
-		// 	case string:
-		// 		htmlNode = &html.Node{Data: evaluated.(string), Type: html.NodeType(node.NodeType)}
-		// 	case int, int8, int16, int32, int64, uint:
-		// 		htmlNode = &html.Node{Data: strconv.Itoa(evaluated.(int)), Type: html.NodeType(node.NodeType)}
-		// 	case []int:
-		// 		htmlNode = &html.Node{Data: arrToString(evaluated.([]int)), Type: html.NodeType(node.NodeType)}
-		// 	default:
-		// 		fmt.Println(node.DOM_ID+" func return type not supported by ToHTMLNode: ", reflect.TypeOf(evaluated).String())
-		// 	}
+			switch evaluated.(type) {
+			case string:
+				htmlNode = &html.Node{Data: evaluated.(string), Type: html.NodeType(node.NodeType)}
+			case int, int8, int16, int32, int64, uint:
+				htmlNode = &html.Node{Data: strconv.Itoa(evaluated.(int)), Type: html.NodeType(node.NodeType)}
+			case []int:
+				htmlNode = &html.Node{Data: arrToString(evaluated.([]int), node.Listener), Type: html.NodeType(node.NodeType)}
+			default:
+				fmt.Println(node.DOM_ID+" func return type not supported by ToHTMLNode: ", reflect.TypeOf(evaluated).String())
+			}
 		case string:
 			htmlNode.Data = node.Content.(string)
 		case int:
@@ -139,27 +144,105 @@ func (node *VNode) ToHTMLNode() *html.Node {
 		default:
 			fmt.Println(node.DOM_ID+" type not supported by ToHTMLNode: ", reflect.TypeOf(node.Content).String())
 		}
-	} else if node.NodeType == ElementNode {
+	case ElementNode:
 		// htmlNode = &html.Node{Data: node.Tag, Type: html.NodeType(node.NodeType)}
 		htmlNode.Data = node.Tag
-	} else {
+	case ConditionalNode:
+		for i, cr := range node.ConditionalRenders {
+			condition := cr.Condition
+			switch condition.(type) {
+			case bool:
+				if condition.(bool) {
+					node.FirstChild = cr.Render
+					val, ok := node.FirstChild.Attrs["id"]
+					if !ok {
+						node.FirstChild.Attrs["id"] = node.DOM_ID
+					} else {
+						node.FirstChild.Attrs["id"] = val.(string) + " " + node.DOM_ID
+					}
+					node.HTMLNode = node.FirstChild.ToHTMLTree()
+					node.ConditionUpdated = false
+					if node.CurrentCondition != i {
+						node.ConditionUpdated = true
+					}
+					node.HTMLNode.Attr = append(node.HTMLNode.Attr, html.Attribute{Key: "id", Val: node.DOM_ID})
+					node.CurrentCondition = i
+					return node.HTMLNode
+				}
+			case LiveBool:
+				cBool := condition.(LiveBool).Value(node.Listener).(bool)
+				if cBool {
+					node.FirstChild = cr.Render
+					val, ok := node.FirstChild.Attrs["id"]
+					if !ok {
+						node.FirstChild.Attrs["id"] = node.DOM_ID
+					} else {
+						node.FirstChild.Attrs["id"] = val.(string) + " " + node.DOM_ID
+					}
+					node.HTMLNode = node.FirstChild.ToHTMLTree()
+					node.ConditionUpdated = false
+					if node.CurrentCondition != i {
+						node.ConditionUpdated = true
+					}
+					node.HTMLNode.Attr = append(node.HTMLNode.Attr, html.Attribute{Key: "id", Val: node.DOM_ID})
+					node.CurrentCondition = i
+					return node.HTMLNode
+				}
+			case func() interface{}:
+				eval := condition.(func() interface{})()
+				if _, ok := eval.(bool); ok {
+					if eval.(bool) {
+						node.FirstChild = cr.Render
+						val, ok := node.FirstChild.Attrs["id"]
+						if !ok {
+							node.FirstChild.Attrs["id"] = node.DOM_ID
+						} else {
+							node.FirstChild.Attrs["id"] = val.(string) + " " + node.DOM_ID
+						}
+						node.HTMLNode = node.FirstChild.ToHTMLTree()
+						node.ConditionUpdated = false
+						if node.CurrentCondition != i {
+							node.ConditionUpdated = true
+						}
+						node.CurrentCondition = i
+						node.HTMLNode.Attr = append(node.HTMLNode.Attr, html.Attribute{Key: "id", Val: node.DOM_ID})
+						return node.HTMLNode
+					}
+				}
+			}
+		}
+		return nil
+	default:
 		fmt.Println(node.NodeType)
 	}
-
 	attrs := []html.Attribute{}
+	// attrs are parsed and any zephyr data is calculated
 	for key, val := range node.Attrs {
 		switch val.(type) {
-		// other zdata handler
+		case LiveData:
+			parsedAttr := html.Attribute{Key: key, Val: val.(LiveData).string(node.Listener)}
+			attrs = append(attrs, parsedAttr)
+		// calculated functions get computed and results parsed
+		case func(*VNodeListener) interface{}:
+			eval := val.(func(*VNodeListener) interface{})(node.Listener)
+			var parsedAttr html.Attribute
+			// parse result
+			switch eval.(type) {
+			case LiveData:
+				parsedAttr = html.Attribute{Key: key, Val: eval.(LiveData).string(node.Listener)}
+			case string:
+				parsedAttr = html.Attribute{Key: key, Val: eval.(string)}
+			case int, int8, int16, int32, int64:
+				parsedAttr = html.Attribute{Key: key, Val: strconv.Itoa(eval.(int))}
+			default:
+				panic("please use a string")
+			}
+			attrs = append(attrs, parsedAttr)
 		case string:
-			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(string)})
-		// case func(*VNodeListener) interface{}:
-		// computed attrs can only be strings
-		// fmt.Println(attr.Value)
-		// attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: val.(func(*VNodeListener) interface{})(node.Listener).(string)})
-		case int:
-			attrs = append(attrs, html.Attribute{Namespace: "", Key: key, Val: strconv.Itoa(val.(int))})
+			parsedAttr := html.Attribute{Key: key, Val: val.(string)}
+			attrs = append(attrs, parsedAttr)
 		default:
-			panic("Please use a string")
+			panic("Please use string or LiveData or CalculatorFunc")
 		}
 	}
 	attrs = append(attrs, html.Attribute{Key: "id", Val: node.DOM_ID})
@@ -172,16 +255,22 @@ func (node *VNode) ToHTMLNode() *html.Node {
 // used for first runs.
 func (node *VNode) ToHTMLTree() *html.Node {
 	htmlNode := node.ToHTMLNode()
+	if node.NodeType == ConditionalNode {
+		return htmlNode
+	}
 	currChild := node.FirstChild
 	var htmlChild *html.Node
 	for currChild != nil {
 		if htmlChild != nil {
 			htmlChild.NextSibling = currChild.ToHTMLTree()
-			prev := htmlChild
-			htmlChild = htmlChild.NextSibling
-			htmlChild.PrevSibling = prev
+			if htmlChild.NextSibling != nil {
+				prev := htmlChild
+				htmlChild = htmlChild.NextSibling
+				htmlChild.PrevSibling = prev
+			}
 		} else {
 			htmlChild = currChild.ToHTMLTree()
+			fmt.Println(htmlChild)
 		}
 		if currChild.PrevSibing == nil {
 			htmlNode.FirstChild = htmlChild
@@ -220,6 +309,22 @@ func (parent *BaseComponent) ChildComponent(c Component, props map[string]interf
 	return node
 }
 
+func RenderIf(condition interface{}, r func(*VNodeListener) *VNode) *VNode {
+	vnode := &VNode{NodeType: ConditionalNode, Component: false, Listener: &VNodeListener{}, DOM_ID: GetElID("conditional")}
+	vnode.ConditionalRenders = []ConditionalRender{ConditionalRender{Condition: condition, Render: r(vnode.Listener)}}
+	return vnode
+}
+
+func (vnode *VNode) RenderElseIf(condition interface{}, r func(*VNodeListener) *VNode) *VNode {
+	vnode.ConditionalRenders = append(vnode.ConditionalRenders, ConditionalRender{Condition: condition, Render: r(vnode.Listener)})
+	return vnode
+}
+
+func (vnode *VNode) RenderElse(r func(*VNodeListener) *VNode) *VNode {
+	vnode.ConditionalRenders = append(vnode.ConditionalRenders, ConditionalRender{Condition: true, Render: r(vnode.Listener)})
+	return vnode
+}
+
 // Element will create VNodes for the element and all of its children
 func Element(tag string, attrs map[string]interface{}, children []*VNode) *VNode {
 	vnode := VNode{NodeType: ElementNode, Tag: tag, DOM_ID: GetElID(tag), Component: false, Listener: &VNodeListener{}}
@@ -240,6 +345,7 @@ func Element(tag string, attrs map[string]interface{}, children []*VNode) *VNode
 		}
 		curr.PrevSibing = prev
 		curr.NextSibling = next
+		// fmt.Println(curr)
 		// on the heap, oh well, root elements will be stack
 		curr.Parent = &vnode
 		static = static && curr.Static
@@ -247,20 +353,21 @@ func Element(tag string, attrs map[string]interface{}, children []*VNode) *VNode
 	}
 	vnode.Attrs = make(map[string]interface{})
 	for key, attr := range attrs {
-		switch attr.(type) {
-		// handle by type
-		case ZephyrData:
-			vnode.Attrs[key] = attr.(ZephyrData).string(vnode.Listener)
+		// switch attr.(type) {
+		// // handle by type
+		// case LiveData:
+		// 	vnode.Attrs[key] = attr.(LiveData)
 
-		case func(*VNodeListener) interface{}:
-			vnode.Attrs[key] = attr.(func(*VNodeListener) interface{})(vnode.Listener)
-		default:
-			// vnode.Attrs[key] = attr
-			panic("type not supported")
-		}
+		// case func(*VNodeListener) interface{}:
+		// 	vnode.Attrs[key] = attr.(func(*VNodeListener) interface{})
+		// default:
+		// 	// vnode.Attrs[key] = attr
+		// 	panic("type not supported")
+		// }
+		vnode.Attrs[key] = attr
 	}
 	vnode.Static = static
-	fmt.Println(vnode.Attrs)
+	// fmt.Println(vnode.Attrs)
 	return &vnode
 }
 
@@ -276,13 +383,8 @@ func DynamicText(dynamicData interface{}) *VNode {
 	var vnode *VNode
 	vnode = &VNode{NodeType: TextNode, Component: false, Static: false, DOM_ID: GetElID("dynamicText")}
 	vnode.Listener = &VNodeListener{id: vnode.DOM_ID} // something idk
-	switch dynamicData.(type) {
-	case ZephyrData:
-		vnode.Content = dynamicData.(ZephyrData).string(vnode.Listener)
-	case func(*VNodeListener) interface{}:
-		vnode.Content = dynamicData.(func(*VNodeListener) interface{})(vnode.Listener)
-	}
-	fmt.Println(vnode)
+	vnode.Content = dynamicData
+	// fmt.Println(vnode)
 	return vnode
 	// switch dynamicVal.(type) {
 	// case *[]int:

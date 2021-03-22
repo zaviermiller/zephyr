@@ -1,6 +1,7 @@
 package zephyr
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -38,7 +39,7 @@ type BaseComponent struct {
 
 	props map[string]interface{}
 	// reactive data - internal use. check reactivity.go
-	data    map[ZephyrData]ReactiveData
+	data    map[LiveData]DataDep
 	methods map[string]interface{}
 	// components map[string]Component
 
@@ -77,19 +78,19 @@ func (c *BaseComponent) BindProp(propName string, destLocation interface{}) {
 	}
 
 	switch val.(type) {
-	case ZephyrData:
-		if _, ok := destLocation.(*ZephyrData); !ok {
-			panic("prop must be same type as local var")
-		}
-		ptr := destLocation.(*ZephyrData)
-		*ptr = val.(ZephyrData)
+	case LiveData:
+		// if _, ok := destLocation.(*LiveData); !ok {
+		// 	panic("prop must be same type as local var")
+		// }
+		ptr := (destLocation.(*LiveData))
+		*ptr = val.(LiveData)
 		// TODO
 		// case func() interface{}:
 		// if _, ok := destLocation.(*func() interface); !ok {
 		// 	panic("prop must be same type as local var")
 		// }
-		// ptr := destLocation.(*ZephyrData)
-		// *ptr = val.(ZephyrData)
+		// ptr := destLocation.(*LiveData)
+		// *ptr = val.(LiveData)
 
 	}
 
@@ -146,7 +147,9 @@ func recurSetListenerUpdater(node *VNode, ctx *ZephyrApp) {
 	node.Listener.Updater = func() {
 		if ctx.RootNode != nil {
 			go ctx.CompareNode(node)
+			return
 		}
+		fmt.Println("error", ctx.RootNode)
 	}
 	curr := node.FirstChild
 	for curr != nil {
@@ -193,7 +196,7 @@ func NewComponent(c Component) Component {
 // DefineData is a wrapper that initializes and creates the components
 // data map from an input
 // func (c *BaseComponent) DefineProps(propDefs map[string]interface{}) {
-// 	c.props = make(map[string]ReactiveData)
+// 	c.props = make(map[string]DataDep)
 // 	for key, val := range propDefs {
 // 		c.Set(key, val)
 // 	}
@@ -202,7 +205,7 @@ func NewComponent(c Component) Component {
 // DefineData is a wrapper that initializes and creates the components
 // data map from an input
 // func (c *BaseComponent) DefineData(dataDefs map[string]interface{}) {
-// 	c.data = make(map[string]ReactiveData)
+// 	c.data = make(map[string]DataDep)
 // 	for key, val := range dataDefs {
 // 		c.Set(key, val)
 // 	}
@@ -235,7 +238,7 @@ func NewComponent(c Component) Component {
 // components data
 // func (c *BaseComponent) Get(key string) interface{} {
 // 	if c.data == nil {
-// 		c.data = make(map[string]ReactiveData)
+// 		c.data = make(map[string]DataDep)
 // 	}
 // 	if rd, ok := c.data[key]; ok {
 // 		rd.Register(c.Listener)
@@ -254,7 +257,7 @@ func NewComponent(c Component) Component {
 
 // func (c *BaseComponent) GetStr(key string) string {
 // 	if c.data == nil {
-// 		c.data = make(map[string]ReactiveData)
+// 		c.data = make(map[string]DataDep)
 // 	}
 // 	if rd, ok := c.data[key]; ok {
 // 		rd.Register(c.Listener)
@@ -268,9 +271,9 @@ func NewComponent(c Component) Component {
 
 // func (c *BaseComponent) Set(key string, data interface{}) interface{} {
 // 	if c.data == nil {
-// 		c.data = make(map[string]ReactiveData)
+// 		c.data = make(map[string]DataDep)
 // 	}
-// 	var newData ReactiveData
+// 	var newData DataDep
 // 	if _, ok := c.data[key]; ok {
 // 		// change to switch
 // 		if reflect.TypeOf(data).String() != c.data[key].Type || reflect.TypeOf(data).Kind() == reflect.Func {
@@ -282,9 +285,9 @@ func NewComponent(c Component) Component {
 // 	} else {
 // 		switch data.(type) {
 // 		case func() interface{}, func():
-// 			newData = newReactiveData("Computed", ComputedFunc(data.(func() interface{})))
+// 			newData = newDataDep("Computed", ComputedFunc(data.(func() interface{})))
 // 		default:
-// 			newData = newReactiveData(reflect.TypeOf(data).String(), data)
+// 			newData = newDataDep(reflect.TypeOf(data).String(), data)
 // 		}
 // 	}
 

@@ -13,11 +13,12 @@ type TestComponent struct {
 
 type ComponentData struct {
 	// Props
-	zString   zephyr.ZephyrData
-	arrLength func() interface{}
+	zString zephyr.LiveData
+	bigArr  zephyr.LiveData
+	// arrLength func() interface{}
 
 	// data tests
-	// longArr ZephyrData
+	// longArr LiveData
 
 	// Other data
 }
@@ -25,11 +26,14 @@ type ComponentData struct {
 func (tc *TestComponent) Init() {
 	// tc.BindProp("propArr", tc.longArr)
 	tc.BindProp("prop", &tc.zString)
+
+	tc.bigArr = tc.NewLiveArray([]int{1, 2, 3, 4, 5, 6})
+
 	// fmt.Println(tc.longArr)
 }
 
 func (tc *TestComponent) calculatedStyle(l *zephyr.VNodeListener) interface{} {
-	if len(tc.zString.Value(l).(string)) > 20 {
+	if len(tc.zString.Value(l).(string)) >= 20 {
 		return "color: red;"
 	} else {
 		return "color: black;"

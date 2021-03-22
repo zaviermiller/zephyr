@@ -12,7 +12,7 @@ import (
 var App = zephyr.NewComponent(&AppComponent{})
 
 type AppData struct {
-	stringTest zephyr.ZephyrData
+	stringTest zephyr.LiveData
 }
 
 type AppComponent struct {
@@ -27,7 +27,7 @@ func (ac *AppComponent) Init() {
 	go func() {
 		for {
 			ac.UpdateStr(ac.stringTest.Value(nil).(string) + "z")
-			time.Sleep(1 * time.Millisecond)
+			time.Sleep(5 * time.Millisecond)
 		}
 	}()
 }

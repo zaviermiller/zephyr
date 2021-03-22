@@ -4,9 +4,7 @@ package zephyr
 // with the Zephyr runtime.
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
-	"strconv"
 	"time"
 
 	"syscall/js"
@@ -95,14 +93,14 @@ func (z *ZephyrApp) Mount(querySelector string) {
 	for {
 		// fmt.Println("waiting for update")
 		currentUpdate := <-z.UpdateQueue
-		fmt.Println("received update: ", currentUpdate, currentUpdate.Data)
+		// fmt.Println("received update: ", currentUpdate, currentUpdate.Data)
 
 		// find element in map or on page and insert into map
 		el, ok := z.DOMElements[currentUpdate.ElementID]
 		// is element alredy on page?
 		if !ok {
 			el = Document(z.Anchor).GetByID(currentUpdate.ElementID)
-			fmt.Println(currentUpdate.ElementID, el)
+			// fmt.Println(currentUpdate.ElementID, el)
 			z.DOMElements[currentUpdate.ElementID] = el
 		}
 
@@ -130,15 +128,18 @@ func (z *ZephyrApp) Mount(querySelector string) {
 		case UpdateAttr:
 			// UpdateAttr data should be html.Attrribute
 			newAttr := currentUpdate.Data.(html.Attribute)
-			fmt.Println(newAttr)
+			// fmt.Println(newAttr)
 			SetAttribute(el, newAttr.Key, newAttr.Val)
-			delete(z.QueueProxy, strconv.Itoa(int(currentUpdate.Operation))+"."+currentUpdate.ElementID)
+			// delete(z.QueueProxy, strconv.Itoa(int(currentUpdate.Operation))+"."+currentUpdate.ElementID)
 		case SetAttrs:
 			// SetAttrs data should be map[string]string
 			mapData := currentUpdate.Data.(map[string]string)
 			for key, val := range mapData {
 				SetAttribute(el, key, val)
 			}
+		case Replace:
+			el := z.DOMElements[currentUpdate.ElementID]
+			ReplaceElement(el, renderedHTML)
 		case RemoveAttr:
 			// TODO
 			// RemoveAttr(el, currentUpdate.Data)

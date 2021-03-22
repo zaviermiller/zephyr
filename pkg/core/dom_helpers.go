@@ -25,6 +25,7 @@ const (
 	SetAttrs
 	RemoveAttr
 	UpdateContent
+	Replace
 	OverwriteInnerHTML
 )
 
@@ -54,9 +55,16 @@ func (d Document) GetByID(id string) js.Value {
 }
 
 func SetInnerHTML(el js.Value, content string) {
-	js.Global().Get("console").Call("dir", el)
-	fmt.Println("set ^ to ", content)
+	// fmt.Println("set ^ to ", content)
 	el.Set("innerHTML", content)
+}
+
+func ReplaceElement(el js.Value, newEl string) {
+	// parent := el.Get("parentNode")
+	// tmpEl := js.Global().Get("document").Call("createElement", "div")
+	el.Set("outerHTML", newEl)
+	// js.Global().Get("console").Call("dir", tmpEl.Get("firstChild"))
+	// parent.Call("replaceChild", el, tmpEl.Get("firstChild"))
 }
 
 func SetAttribute(el js.Value, key, val string) {
@@ -92,12 +100,15 @@ func (z *ZephyrApp) CompareNode(root *VNode) {
 			return
 		}
 
+		// switch
 		if node.NodeType == ElementNode {
 			// check if node exists already
-			if el, ok := z.DOMNodes[node.DOM_ID]; !ok {
+			el, ok := z.DOMNodes[node.DOM_ID]
+			if !ok {
+				// create node in map if it doesn't exist
 				z.DOMNodes[node.DOM_ID] = *node.HTMLNode
 				el = *node.HTMLNode
-				// initial root render
+				// initial render
 				if _, ok := z.DOMElements[node.DOM_ID]; !ok {
 					domElem := GetDocument().GetByID(node.DOM_ID)
 					if domElem.Equal(js.Null()) {
@@ -109,54 +120,65 @@ func (z *ZephyrApp) CompareNode(root *VNode) {
 						return
 					}
 					z.DOMElements[node.DOM_ID] = domElem
-				} else {
-					// render regular node
-					// check if attributes have changed
-					// 	z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: node.Parent.DOM_ID, Data: node.HTMLNode}
 				}
 				// z.UpdateQueue <- DOMUpdate{Operation: UpdateContent, ElementID: node.Parent.DOM_ID, Data: node}
-			} else {
-				for _, val := range el.Attr {
-					_, ok := node.Attrs[val.Key]
-					if !ok {
-						// remove attr
-						z.UpdateQueue <- DOMUpdate{Operation: RemoveAttr, ElementID: node.DOM_ID, Data: val}
-						continue
-					}
-					// set arr
-					for _, newVal := range node.HTMLNode.Attr {
-						if newVal.Key == val.Key {
-							if newVal.Val == val.Val {
-								break
-							} else {
-								// fmt.Println("mismatched attr, sending update: ", newVal.Val, val.Val)
-								// z.QueueUpdate(UpdateAttr, node.DOM_ID, newVal)
-								z.UpdateQueue <- DOMUpdate{Operation: UpdateAttr, ElementID: node.DOM_ID, Data: newVal}
-								break
-							}
+			}
+			// check attrs
+			for _, val := range el.Attr {
+				_, ok := node.Attrs[val.Key]
+				if !ok {
+					// remove attr
+					z.UpdateQueue <- DOMUpdate{Operation: RemoveAttr, ElementID: node.DOM_ID, Data: val}
+					continue
+				}
+				// set arr
+				for _, newVal := range node.HTMLNode.Attr {
+					if newVal.Key == val.Key {
+						if newVal.Val == val.Val {
+							break
+						} else {
+							// fmt.Println("mismatched attr, sending update: ", newVal.Val, val.Val)
+							// z.QueueUpdate(UpdateAttr, node.DOM_ID, newVal)
+							z.UpdateQueue <- DOMUpdate{Operation: UpdateAttr, ElementID: node.DOM_ID, Data: newVal}
+							break
 						}
 					}
 				}
-
-				// currChild := node.FirstChild
-				// for currChild != nil {
-				// 	RecurComp(*currChild)
-				// 	currChild = currChild.NextSibling
-				// }
 			}
+			// currChild := node.FirstChild
+			// for currChild != nil {
+			// 	RecurComp(*currChild)
+			// 	currChild = currChild.NextSibling
+			// }
 		} else if node.NodeType == TextNode {
 			otherContent, ok := z.DOMNodes[node.Parent.DOM_ID]
 			if !ok || otherContent.Data != node.HTMLNode.Data {
 				// update dom content
 				z.UpdateQueue <- DOMUpdate{Operation: UpdateContent, ElementID: node.Parent.DOM_ID, Data: node.HTMLNode.Data}
 			}
+		} else if node.NodeType == ConditionalNode {
+			el, ok := z.DOMElements[node.DOM_ID]
+			if !ok {
+				js.Global().Get("console").Call("dir", el)
+				el = GetDocument().GetByID(node.DOM_ID)
+				if el.Equal(js.Null()) {
+					z.UpdateQueue <- DOMUpdate{Operation: Insert, ElementID: node.Parent.DOM_ID, Data: node.HTMLNode}
+					return
+				}
+			}
+			if node.ConditionUpdated {
+				z.UpdateQueue <- DOMUpdate{Operation: Replace, ElementID: node.DOM_ID, Data: node.HTMLNode}
+			}
+			newEl := GetDocument().GetByID(node.DOM_ID)
+			z.DOMElements[node.DOM_ID] = newEl
+			js.Global().Get("console").Call("dir", newEl)
+
 		}
 
 		z.DOMNodes[node.DOM_ID] = *node.HTMLNode
 	}
 
 	RecurComp(*root)
-	fmt.Println("DONE")
 }
 
 func (z *ZephyrApp) QueueUpdate(op DOMOperation, id string, data interface{}) {
