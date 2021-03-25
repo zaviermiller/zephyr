@@ -8,7 +8,6 @@
 package zephyr
 
 import (
-	"strconv"
 	"syscall/js"
 )
 
@@ -214,12 +213,12 @@ func AddEventListener(el js.Value, eventStr string, eFunc func(e *DOMEvent)) {
 // 	RecurComp(*root)
 // }
 
-func (z *ZephyrApp) QueueUpdate(op DOMOperation, id string, data interface{}) {
-	updateID := strconv.Itoa(int(op)) + "." + id
-	val, ok := z.QueueProxy[updateID]
-	if !ok {
-		z.QueueProxy[updateID] = DOMUpdate{Operation: op, ElementID: id, Data: data}
-		return
-	}
-	val.Data = data
-}
+// func (z *ZephyrApp) QueueUpdate(op DOMOperation, id string, data interface{}) {
+// 	updateID := strconv.Itoa(int(op)) + "." + id
+// 	val, ok := z.QueueProxy[updateID]
+// 	if !ok {
+// 		z.QueueProxy[updateID] = DOMUpdate{Operation: op, ElementID: id, Data: data}
+// 		return
+// 	}
+// 	val.Data = data
+// }

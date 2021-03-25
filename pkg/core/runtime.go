@@ -29,7 +29,7 @@ type ZephyrApp struct {
 
 	// QueueProxy allows updates to be "smushed" together,
 	// queuing similar updates as one.
-	QueueProxy map[string]DOMUpdate
+	// QueueProxy map[string]DOMUpdate
 
 	// DOMNodes is a map that stores each element by its
 	// js.Value, which can be retrieved from the DOMElements
@@ -55,7 +55,7 @@ type ZephyrApp struct {
 // after doing app-wide initialization (plugins and other stuff maybe)
 func CreateApp(rootInstance Component) ZephyrApp {
 	rand.Seed(time.Now().Unix())
-	app := ZephyrApp{RootComponent: rootInstance, UpdateQueue: make(chan DOMUpdate, 10), QueueProxy: map[string]DOMUpdate{}}
+	app := ZephyrApp{RootComponent: rootInstance, UpdateQueue: make(chan DOMUpdate, 10)}
 
 	js.Global().Set("Zephyr", map[string]interface{}{})
 
