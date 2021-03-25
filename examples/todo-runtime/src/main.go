@@ -24,20 +24,18 @@ func (ac *AppComponent) Init() {
 
 	item1 := todo.NewTodoItem("clean up")
 
-	ac.todoItems = ac.NewLiveArray([]zephyr.LiveStructIface{
+	ac.todoItems = zephyr.NewLiveArray([]zephyr.LiveStruct{
 		&item1,
 	})
-	ac.showField = ac.NewLiveBool(false)
+	ac.showField = zephyr.NewLiveBool(false)
 
 	go func() {
 		time.Sleep(1 * time.Second)
+		// ac.showField.Set(true)
+		time.Sleep(2 * time.Second)
 		item2 := todo.NewTodoItem("make a mess")
-		ac.todoItems.Set(append(ac.todoItems.Value(nil).([]zephyr.LiveStructIface), &item2))
-		time.Sleep(2 * time.Second)
+		ac.todoItems.Set(append(ac.todoItems.Value(nil).([]zephyr.LiveStruct), &item2))
 		item1.Complete()
-		ac.showField.Set(true)
-		time.Sleep(2 * time.Second)
-		ac.showField.Set(false)
 	}()
 }
 
@@ -48,12 +46,12 @@ func (ac *AppComponent) Render() *zephyr.VNode {
 		ac.ChildComponent(todo_list.Component, map[string]interface{}{"items": ac.todoItems}),
 		zephyr.Element("button", nil, []*zephyr.VNode{
 			zephyr.StaticText("New item"),
-		}),
-		zephyr.Element("br", nil, nil),
-		zephyr.RenderIf(ac.showField, func(l *zephyr.VNodeListener) *zephyr.VNode {
+		}).BindEvent("click", func(e *zephyr.DOMEvent) { ac.showField.Set(true) }),
+		// zephyr.Element("br", nil, nil),
+		zephyr.RenderIf(ac.showField, func(l zephyr.Listener) *zephyr.VNode {
 			return zephyr.Element("input", map[string]interface{}{"type": "text", "placeholder": "eg. Pick up the daughter"}, nil)
-		}).RenderElse(func(l *zephyr.VNodeListener) *zephyr.VNode {
-			return zephyr.Element("p", nil, []*zephyr.VNode{zephyr.StaticText("\nlick my balls")})
+		}).RenderElse(func(l zephyr.Listener) *zephyr.VNode {
+			return zephyr.Element("p", nil, []*zephyr.VNode{zephyr.StaticText("lick my balls")})
 		}),
 		// test.Component.RenderWithProps()
 	})

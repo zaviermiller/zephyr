@@ -75,38 +75,152 @@ func (rd *DataDep) Register(l Listener) {
 	}
 }
 
-// todo
-type ComponentListener struct {
-	Updater func()
-	id      string
-}
-
-func (l ComponentListener) Update() {
-	// re-render component on update
-	if l.Updater != nil {
-		l.Updater()
-	}
-}
-
-func (l ComponentListener) Identifier() string {
-	return l.id
-}
-
 // func ()
 
 type VNodeListener struct {
-	Updater func()
-	id      string
+	// Updater func()
+	id   string
+	node *VNode
+	// depTypes []ListenerType
 }
 
 func (l VNodeListener) Update() {
 	// re-render component on update
-	if l.Updater != nil {
-		l.Updater()
-	}
+	// if l.Updater != nil {
+	// 	l.Updater()
+	// }
 }
 
 func (l VNodeListener) Identifier() string {
+	return l.id
+}
+
+type VNAttrListener struct {
+	// Updater func()
+	id   string
+	node *VNode
+	// depTypes []ListenerType
+}
+
+func (l VNAttrListener) Update() {
+	// re-render component on update
+	// if l.Updater != nil {
+	// 	l.Updater()
+	// }
+	// re-parse attrs, check diffs, render
+	updatedAttrs, err := l.node.parseAttrs()
+	if err != nil {
+		panic(err.Error())
+	}
+	l.node.RenderChan <- DOMUpdate{Operation: UpdateAttrs, ElementID: l.node.DOM_ID, Data: updatedAttrs}
+	// for k, v := range l.node.Attrs {
+	// 	newV, ok := updatedAttrs[k]
+	// 	if !ok {
+	// 		// remove attr
+	// 		l.node.RenderChan <- DOMUpdate{Operation: RemoveAttr, ElementID: l.node.DOM_ID, Data: /* some data? */ "test" }
+	// 		return
+	// 	}
+	// 	if newV != v {
+	// 		l.node.RenderChan <- DOMUpdate{Operation: UpdateAttr, ElementID: l.node.DOM_ID, Data: newV}
+	// 	}
+	// set arr
+	// for _, newVal := range node.HTMLNode.Attr {
+	// 	if newVal.Key == val.Key {
+	// 		if newVal.Val == val.Val {
+	// 			break
+	// 		} else {
+	// 			// fmt.Println("mismatched attr, sending update: ", newVal.Val, val.Val)
+	// 			// z.QueueUpdate(UpdateAttr, node.DOM_ID, newVal)
+	// 			break
+	// 		}
+	// 	}
+	// }
+}
+
+func (l VNAttrListener) Identifier() string {
+	return l.id
+}
+
+type VNContentListener struct {
+	// Updater func()
+	id   string
+	node *VNode
+	// depTypes []ListenerType
+}
+
+func (l VNContentListener) Update() {
+	// re-render component on update
+	// if l.Updater != nil {
+	// 	l.Updater()
+	// }
+	updatedContent, err := l.node.parseContent()
+	if err != nil {
+		panic(err.Error())
+	}
+	l.node.RenderChan <- DOMUpdate{Operation: UpdateContent, ElementID: l.node.Parent.DOM_ID, Data: updatedContent}
+
+}
+
+func (l VNContentListener) Identifier() string {
+	return l.id
+}
+
+type VNPropListener struct {
+	// Updater func()
+	id   string
+	node *VNode
+	// depTypes []ListenerType
+}
+
+func (l VNPropListener) Update() {
+	// re-render component on update
+	// if l.Updater != nil {
+	// 	l.Updater()
+	// }
+}
+
+func (l VNPropListener) Identifier() string {
+	return l.id
+}
+
+type VNCalculatorListener struct {
+	// Updater func()
+	id   string
+	node *VNode
+	// depTypes []ListenerType
+}
+
+func (l VNCalculatorListener) Update() {
+	// re-render component on update
+	// if l.Updater != nil {
+	// 	l.Updater()
+	// }
+}
+
+func (l VNCalculatorListener) Identifier() string {
+	return l.id
+}
+
+type VNConditionalListener struct {
+	// Updater func()
+	id   string
+	node *VNode
+	// depTypes []ListenerType
+}
+
+func (l VNConditionalListener) Update() {
+	// re-render component on update
+	// if l.Updater != nil {
+	// 	l.Updater()
+	// }
+	l.node.parseConditional()
+	fmt.Println("fc: ", l.node.FirstChild)
+	if l.node.ConditionUpdated {
+		l.node.RenderChan <- DOMUpdate{Operation: UpdateConditional, ElementID: l.node.DOM_ID, Data: l.node.FirstChild}
+	}
+}
+
+func (l VNConditionalListener) Identifier() string {
 	return l.id
 }
 
@@ -136,7 +250,7 @@ type LiveData interface {
 type LiveString func() *DataDep
 
 // NewLiveString returns a "live" string (reactive type LiveString)
-func (c *BaseComponent) NewLiveString(data string) LiveString {
+func NewLiveString(data string) LiveString {
 	// create a new DataDep
 	rd := NewDep(data)
 	rdPtr := &rd
@@ -187,7 +301,7 @@ func (str LiveString) string(l Listener) string {
 type LiveInt func() *DataDep
 
 // NewLiveString returns a "live" string (reactive type LiveString)
-func (c *BaseComponent) NewLiveInt(data int) LiveInt {
+func NewLiveInt(data int) LiveInt {
 	// create a new DataDep
 	rd := NewDep(data)
 	rdPtr := &rd
@@ -239,7 +353,7 @@ func (i LiveInt) string(l Listener) string {
 type LiveBool func() *DataDep
 
 // NewLiveString returns a "live" string (reactive type LiveString)
-func (c *BaseComponent) NewLiveBool(data bool) LiveBool {
+func NewLiveBool(data bool) LiveBool {
 	// create a new DataDep
 	rd := NewDep(data)
 	rdPtr := &rd
@@ -247,6 +361,7 @@ func (c *BaseComponent) NewLiveBool(data bool) LiveBool {
 	rdGetter := LiveBool(func() *DataDep {
 		return rdPtr
 	})
+	// c.data[rdGetter] = rd
 	return rdGetter
 }
 
@@ -261,6 +376,7 @@ func (b LiveBool) Set(newData interface{}) {
 	rd := b()
 	rd.Data = val
 	rd.Notify()
+	fmt.Println(rd.Listeners)
 }
 
 func (b LiveBool) Value(l Listener) interface{} {
@@ -294,13 +410,13 @@ func (b LiveBool) string(l Listener) string {
 type LiveArray func() *DataDep
 
 // NewLiveString returns a "live" string (reactive type LiveString)
-func (c *BaseComponent) NewLiveArray(data interface{}) LiveArray {
+func NewLiveArray(data interface{}) LiveArray {
 	// create a new DataDep
 	rd := NewDep(data)
 	rdPtr := &rd
 
 	switch data.(type) {
-	case []int, []bool, []string, []float32, []float64, []struct{}, []interface{}, []LiveStructIface:
+	case []int, []bool, []string, []float32, []float64, []struct{}, []interface{}, []LiveStruct:
 		// return func type with getter
 		rdGetter := LiveArray(func() *DataDep {
 			return rdPtr
@@ -321,7 +437,7 @@ func (arr LiveArray) Set(newData interface{}) {
 	// setter func?
 	rd := arr()
 	switch newData.(type) {
-	case []int, []string, []bool, []uint, []float32, []float64, []rune, []struct{}, []interface{}, []LiveStructIface:
+	case []int, []string, []bool, []uint, []float32, []float64, []rune, []struct{}, []interface{}, []LiveStruct:
 		rd.Data = newData
 	}
 	rd.Notify()
@@ -342,7 +458,7 @@ func (arr LiveArray) Value(l Listener) interface{} {
 }
 
 func (arr LiveArray) Append(val interface{}) {
-	// arr.Set(append(arr.Value(nil).([]zephyr.LiveStructIface), &item2))
+	// arr.Set(append(arr.Value(nil).([]zephyr.LiveStruct), &item2))
 	rd := arr()
 	// rd.Data = append(rd.Data, val)
 	switch rd.Data.(type) {
@@ -364,12 +480,12 @@ func (arr LiveArray) Append(val interface{}) {
 			panic("type error")
 		}
 		rd.Data = append(rd.Data.([]bool), val)
-	case []LiveStructIface:
+	case []LiveStruct:
 		val, ok := val.(LiveStruct)
 		if !ok {
 			panic("type error")
 		}
-		rd.Data = append(rd.Data.([]LiveStructIface), &val)
+		rd.Data = append(rd.Data.([]LiveStruct), val)
 		rd.Notify()
 	}
 }
@@ -393,11 +509,13 @@ func arrToString(arr interface{}, l Listener) string {
 			}
 			str += "false "
 		}
-	case []LiveStructIface:
+	case []LiveStruct:
 		// change me?
-		for _, item := range arr.([]LiveStructIface) {
+		for _, item := range arr.([]LiveStruct) {
 			item.Register(l)
-			str += "{" + strings.Split(fmt.Sprintf("%+v ", item), "}")[1] + " }"
+			structSplit := strings.Split(fmt.Sprintf("%+v ", item), "}")
+			printed := structSplit[len(structSplit)-2]
+			str += "{" + printed + " } "
 		}
 	default:
 		panic("type not supported")
@@ -413,7 +531,7 @@ func (arr LiveArray) string(l Listener) string {
 	rd := arr()
 	rd.Register(l)
 	switch rd.Data.(type) {
-	case []string, []int, []bool, []LiveStructIface:
+	case []string, []int, []bool, []LiveStruct:
 		return arrToString(rd.Data, l)
 	}
 	return ""
@@ -422,22 +540,22 @@ func (arr LiveArray) string(l Listener) string {
 // The struct implementation is slightly different
 // than the rest; details below.
 
-type LiveStructIface interface {
+type LiveStruct interface {
 	Notify()
 	Register(l Listener)
 }
 
-type LiveStruct struct {
+type LiveStructImpl struct {
 	Listeners map[string]Listener
 }
 
-func (s LiveStruct) Notify() {
+func (s LiveStructImpl) Notify() {
 	for _, l := range s.Listeners {
 		l.Update()
 	}
 }
 
-func (s *LiveStruct) Register(l Listener) {
+func (s *LiveStructImpl) Register(l Listener) {
 	if s.Listeners == nil {
 		s.Listeners = map[string]Listener{l.Identifier(): l}
 		return

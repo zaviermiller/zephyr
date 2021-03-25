@@ -5,7 +5,7 @@ import (
 )
 
 type TodoItem struct {
-	zephyr.LiveStruct
+	zephyr.LiveStructImpl
 	Completed bool
 	Content   string
 }
@@ -19,4 +19,9 @@ func NewTodoItem(content string) TodoItem {
 func (item *TodoItem) Complete() {
 	item.Completed = true
 	item.Notify()
+}
+
+func (item *TodoItem) IsComplete(l *zephyr.VNodeListener) bool {
+	item.Register(l)
+	return item.Completed
 }

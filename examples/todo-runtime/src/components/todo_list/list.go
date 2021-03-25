@@ -9,7 +9,7 @@ var Component = zephyr.NewComponent(&TodoListComponent{})
 type TodoListComponent struct {
 	zephyr.BaseComponent
 
-	listItems zephyr.LiveData
+	listItems zephyr.LiveArray
 }
 
 func (c *TodoListComponent) Init() {
