@@ -86,7 +86,7 @@ type VNode struct {
 	// HTMLNode *html.Node
 
 	// Other node refs
-	Parent, FirstChild, LastChild, PrevSibing, NextSibling *VNode
+	Parent, FirstChild, LastChild, PrevSibling, NextSibling *VNode
 
 	// Flags
 	Static    bool
@@ -250,7 +250,7 @@ func (node *VNode) parseIter() (keys []interface{}) {
 			if prev != nil {
 				prev.NextSibling = c
 			}
-			c.PrevSibing = prev
+			c.PrevSibling = prev
 			// on the heap, oh well, root elements will be stack
 			c.Parent = node
 			c.DOM_ID = node.DOM_ID + "-k[" + c.key.(string) + "]"
@@ -281,7 +281,7 @@ func Element(tag string, attrs map[string]interface{}, children []*VNode) *VNode
 		if i == 0 {
 			vnode.FirstChild = curr
 		}
-		curr.PrevSibing = prev
+		curr.PrevSibling = prev
 		curr.NextSibling = next
 		// fmt.Println(curr)
 		// on the heap, oh well, root elements will be stack
