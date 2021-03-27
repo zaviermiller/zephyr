@@ -31,8 +31,9 @@ These are the concrete features currently offered and planned by the Zephyr API:
 - [x] Asynchronous runtime
 - [x] One-way data flow between components as props
 - [x] TinyGo support
-- [ ] Vue-based DOM updates (initial pass)
-- [ ] Two-way data flow with DOM and Component Events
+- [x] Vue-based DOM updates (initial pass)
+- [x] Two-way data flow with DOM and Component Events
+- [x] Conditional and iterative rendering
 - [ ] Lifecycle hooks (OnInit, OnMount, OnRerender, OnDeactivate, On)
 - [ ] Zephyr CLI tool (create, dev, build, test)
 - [ ] Width breakpoint APIs

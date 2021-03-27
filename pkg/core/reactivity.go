@@ -257,7 +257,6 @@ func (l VNIteratorListener) Update() {
 	// // elId = currentUpdate.Data.(*VNode).DOM_ID
 	// renderedHTML := string(bb.Bytes())
 	// l.node.RenderChan <- DOMUpdate{Operation: RemoveElements, ElementID: l.node.DOM_ID, Data: renderedHTML}
-	curr := l.node.FirstChild
 	switch keyDiff := len(newKeys) - len(keys); {
 	case keyDiff == 0:
 		// check for reorder
@@ -271,6 +270,7 @@ func (l VNIteratorListener) Update() {
 		}
 	case keyDiff > 0:
 		// item was added
+		curr := l.node.FirstChild
 		for i, val := range newKeys {
 			if oldI := indexOf(keys, val); oldI == -1 {
 				// new element
@@ -282,26 +282,42 @@ func (l VNIteratorListener) Update() {
 					keyDiff--
 					keys = insertAt(keys, i, val)
 					newNode := l.node.IterRender(i, l.node.Content.(LiveArray)().Data.([]LiveStruct)[i])
-					prev := curr.PrevSibling
-					prev.NextSibling = newNode
-					curr.PrevSibling = newNode
-					newNode.PrevSibling = prev
-					newNode.NextSibling = curr
+					newNode.DOM_ID = l.node.DOM_ID + "-k[" + newNode.key.(string) + "]"
+					if curr == nil {
+						// appended
+						prev := l.node.LastChild
+						prev.NextSibling = newNode
+						newNode.PrevSibling = prev
+						l.node.LastChild = newNode
+						l.node.RenderChan <- DOMUpdate{Operation: InsertAfter, ElementID: prev.DOM_ID, Data: newNode}
+					} else {
+						prev := curr.PrevSibling
+						if prev != nil {
+							prev.NextSibling = newNode
+						}
+						curr.PrevSibling = newNode
+						newNode.PrevSibling = prev
+						newNode.NextSibling = curr
+						l.node.RenderChan <- DOMUpdate{Operation: InsertBefore, ElementID: curr.DOM_ID, Data: newNode}
+					}
 					// if curr.NextSibling == nil {
 					// 	l.node.RenderChan <- DOMUpdate{Operation: InsertAfter, ElementID: curr.PrevSibling.DOM_ID, Data: curr}
 					// 	continue
 					// }
-					l.node.RenderChan <- DOMUpdate{Operation: InsertBefore, ElementID: curr.DOM_ID, Data: newNode}
 				}
 			} else if oldI != i {
 				// swap the elements
 				l.node.RenderChan <- DOMUpdate{Operation: SwapChildren, ElementID: l.node.Parent.DOM_ID, Data: [2]int{i, oldI}}
 				swap(keys, i, oldI)
 			}
-			curr = curr.NextSibling
+			if curr != nil {
+				curr = curr.NextSibling
+			}
 		}
 	case keyDiff < 0:
 		// item was removed
+		curr := l.node.FirstChild
+
 		for i, val := range keys {
 			if oldI := indexOf(newKeys, val); oldI == -1 {
 				if keyDiff >= 0 {

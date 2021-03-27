@@ -21,7 +21,7 @@ func (item *TodoItem) Complete() {
 	item.Notify()
 }
 
-func (item *TodoItem) IsComplete(l zephyr.Listener) bool {
+func (item *TodoItem) IsComplete(l zephyr.Listener) interface{} {
 	item.Register(l)
 	return item.Completed
 }

@@ -181,7 +181,7 @@ func (node *VNode) BindEvent(event string, callback func(e *DOMEvent)) *VNode {
 
 func RenderIf(condition interface{}, r *VNode) *VNode {
 	// set up listener
-	vnode := &VNode{NodeType: ConditionalNode, Component: false, DOM_ID: GetElID("conditional"), CurrentCondition: 0}
+	vnode := &VNode{NodeType: ConditionalNode, Tag: "conditional", Component: false, CurrentCondition: 0}
 	vnode.ConditionalRenders = []ConditionalRender{ConditionalRender{Condition: condition, Render: r}}
 	return vnode
 }
@@ -198,9 +198,7 @@ func (vnode *VNode) RenderElse(r *VNode) *VNode {
 // ITERATIVE RENDERING
 
 func RenderFor(iterator LiveArray, r func(index int, val interface{}) *VNode) *VNode {
-	vnode := &VNode{NodeType: IterativeNode, Component: false, DOM_ID: GetElID("iterator"), Static: false, Content: iterator, IterRender: r}
-	keys := vnode.parseIter()
-	vnode.Keys = keys
+	vnode := &VNode{NodeType: IterativeNode, Component: false, Tag: "iterator", Static: false, Content: iterator, IterRender: r}
 	return vnode
 }
 
@@ -283,6 +281,16 @@ func Element(tag string, attrs map[string]interface{}, children []*VNode) *VNode
 		}
 		curr.PrevSibling = prev
 		curr.NextSibling = next
+		if curr.NodeType == TextNode {
+			curr.DOM_ID = "Ztext-" + strconv.Itoa(i)
+		} else {
+			curr.DOM_ID = "Z" + curr.Tag + "-" + strconv.Itoa(i)
+		}
+
+		if curr.NodeType == IterativeNode {
+			keys := curr.parseIter()
+			curr.Keys = keys
+		}
 		// fmt.Println(curr)
 		// on the heap, oh well, root elements will be stack
 		curr.Parent = &vnode

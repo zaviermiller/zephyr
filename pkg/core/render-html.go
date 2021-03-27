@@ -153,8 +153,8 @@ func (n *VNode) parseConditional() error {
 			}
 		case func(l Listener) interface{}:
 			eval := condition.(func(l Listener) interface{})(conditionalListener)
-			if _, ok := eval.(bool); ok {
-				if eval.(bool) {
+			if b, ok := eval.(bool); ok {
+				if b {
 					n.FirstChild = cr.Render
 					n.ConditionUpdated = n.CurrentCondition != i
 					n.CurrentCondition = i
@@ -165,8 +165,12 @@ func (n *VNode) parseConditional() error {
 			return errors.New("conditional must use bool, live bool, or calculated function that returns a bool")
 		}
 	}
+	n.FirstChild = nil
+	n.ConditionUpdated = true
+	n.CurrentCondition = -1
+	return nil
 addClass:
-	if val, ok := n.FirstChild.Attrs["class"]; !ok {
+	if _, ok := n.FirstChild.Attrs["class"]; !ok {
 		if n.FirstChild.Attrs == nil {
 			n.FirstChild.Attrs = map[string]interface{}{
 				"class": n.DOM_ID,
@@ -174,8 +178,6 @@ addClass:
 		} else {
 			n.FirstChild.Attrs["class"] = n.DOM_ID
 		}
-	} else {
-		n.FirstChild.Attrs["class"] = val.(string) + " " + n.DOM_ID
 	}
 	// fmt.Println("here right: ", n.FirstChild.Attrs)
 	return nil

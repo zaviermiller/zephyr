@@ -23,19 +23,19 @@ func (c *TodoListItemComponent) Init() {
 
 func (c *TodoListItemComponent) Render() *zephyr.VNode {
 	return zephyr.Element("div", map[string]interface{}{"style": "margin-bottom: 10px;"}, []*zephyr.VNode{
-		zephyr.RenderIf(func(l zephyr.Listener) interface{} { return !c.todoItem.IsComplete(l) },
+		zephyr.RenderIf(func(l zephyr.Listener) interface{} { return !c.todoItem.IsComplete(l).(bool) },
 			zephyr.Element("button", map[string]interface{}{
 				"style": "margin: 10px 10px;",
 			}, []*zephyr.VNode{
 				zephyr.StaticText("Complete"),
-			}),
+			}).BindEvent("click", func(e *zephyr.DOMEvent) { c.todoItem.Complete() }),
 		),
 		zephyr.RenderIf(c.todoItem.IsComplete,
 			zephyr.Element("del", nil, []*zephyr.VNode{
 				zephyr.DynamicText(c.todoItem.GetContent),
-			}).RenderElse(zephyr.Element("span", nil, []*zephyr.VNode{
-				zephyr.DynamicText(c.todoItem.GetContent),
-			})),
-		),
+			}),
+		).RenderElse(zephyr.Element("span", nil, []*zephyr.VNode{
+			zephyr.DynamicText(c.todoItem.GetContent),
+		})),
 	})
 }
