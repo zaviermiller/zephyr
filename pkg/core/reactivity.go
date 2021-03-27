@@ -157,8 +157,7 @@ func (l VNContentListener) Update() {
 	if err != nil {
 		panic(err.Error())
 	}
-	l.node.RenderChan <- DOMUpdate{Operation: UpdateContent, ElementID: l.node.Parent.DOM_ID, Data: updatedContent}
-
+	l.node.Parent.RenderChan <- DOMUpdate{Operation: UpdateContent, ElementID: l.node.Parent.DOM_ID, Data: updatedContent}
 }
 
 func (l VNContentListener) Identifier() string {
@@ -214,13 +213,156 @@ func (l VNConditionalListener) Update() {
 	// 	l.Updater()
 	// }
 	l.node.parseConditional()
-	fmt.Println("fc: ", l.node.FirstChild)
+	// fmt.Println("fc: ", l.node.FirstChild)
 	if l.node.ConditionUpdated {
 		l.node.RenderChan <- DOMUpdate{Operation: UpdateConditional, ElementID: l.node.DOM_ID, Data: l.node.FirstChild}
+		var eventRecur func(*VNode)
+		eventRecur = func(node *VNode) {
+			node.RenderChan = l.node.RenderChan
+			if node.events != nil {
+				l.node.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: node.DOM_ID, Data: node.events}
+			}
+			for c := node.FirstChild; c != nil; c = c.NextSibling {
+				eventRecur(c)
+			}
+		}
+		eventRecur(l.node)
 	}
 }
 
 func (l VNConditionalListener) Identifier() string {
+	return l.id
+}
+
+type VNIteratorListener struct {
+	// Updater func()
+	id   string
+	node *VNode
+	// depTypes []ListenerType
+}
+
+func (l VNIteratorListener) Update() {
+	// re-render component on update
+	// if l.Updater != nil {
+	// 	l.Updater()
+	// }
+	if l.node.NodeType != IterativeNode {
+		return
+	}
+	newKeys := l.node.getNewKeys()
+	keys := l.node.Keys
+
+	// var bb bytes.Buffer
+	// RenderHTML(&bb, l.node)
+	// // elId = currentUpdate.Data.(*VNode).DOM_ID
+	// renderedHTML := string(bb.Bytes())
+	// l.node.RenderChan <- DOMUpdate{Operation: RemoveElements, ElementID: l.node.DOM_ID, Data: renderedHTML}
+	curr := l.node.FirstChild
+	switch keyDiff := len(newKeys) - len(keys); {
+	case keyDiff == 0:
+		// check for reorder
+		for i, val := range newKeys {
+			if oldI := indexOf(keys, val); oldI == -1 {
+				// deleted and replaced
+			} else if oldI != i {
+				l.node.RenderChan <- DOMUpdate{Operation: SwapChildren, ElementID: l.node.Parent.DOM_ID, Data: [2]int{i, oldI}}
+				swap(keys, i, oldI)
+			}
+		}
+	case keyDiff > 0:
+		// item was added
+		for i, val := range newKeys {
+			if oldI := indexOf(keys, val); oldI == -1 {
+				// new element
+				if keyDiff <= 0 {
+					// element deleted and replaced
+					// todo
+				} else {
+					// element inserted at i
+					keyDiff--
+					keys = insertAt(keys, i, val)
+					newNode := l.node.IterRender(i, l.node.Content.(LiveArray)().Data.([]LiveStruct)[i])
+					prev := curr.PrevSibling
+					prev.NextSibling = newNode
+					curr.PrevSibling = newNode
+					newNode.PrevSibling = prev
+					newNode.NextSibling = curr
+					// if curr.NextSibling == nil {
+					// 	l.node.RenderChan <- DOMUpdate{Operation: InsertAfter, ElementID: curr.PrevSibling.DOM_ID, Data: curr}
+					// 	continue
+					// }
+					l.node.RenderChan <- DOMUpdate{Operation: InsertBefore, ElementID: curr.DOM_ID, Data: newNode}
+				}
+			} else if oldI != i {
+				// swap the elements
+				l.node.RenderChan <- DOMUpdate{Operation: SwapChildren, ElementID: l.node.Parent.DOM_ID, Data: [2]int{i, oldI}}
+				swap(keys, i, oldI)
+			}
+			curr = curr.NextSibling
+		}
+	case keyDiff < 0:
+		// item was removed
+		for i, val := range keys {
+			if oldI := indexOf(newKeys, val); oldI == -1 {
+				if keyDiff >= 0 {
+					// replaced
+				} else {
+					// remove the attr
+					l.node.RenderChan <- DOMUpdate{Operation: Delete, ElementID: curr.DOM_ID, Data: "before"}
+					keys = append(keys[:i], keys[:i+1])
+					keyDiff++
+				}
+			} else if oldI != i {
+				//swap?
+				l.node.RenderChan <- DOMUpdate{Operation: SwapChildren, ElementID: l.node.Parent.DOM_ID, Data: [2]int{i, oldI}}
+				swap(keys, i, oldI)
+			}
+		}
+	}
+	l.node.Keys = newKeys
+	// fmt.Println("received iterator update")
+	// l.node.parseConditional()
+	// // fmt.Println("fc: ", l.node.FirstChild)
+	// if l.node.ConditionUpdated {
+	// 	l.node.RenderChan <- DOMUpdate{Operation: UpdateConditional, ElementID: l.node.DOM_ID, Data: l.node.FirstChild}
+	// 	var eventRecur func(*VNode)
+	// 	eventRecur = func(node *VNode) {
+	// 		node.RenderChan = l.node.RenderChan
+	// 		if node.events != nil {
+	// 			l.node.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: node.DOM_ID, Data: node.events}
+	// 		}
+	// 		for c := node.FirstChild; c != nil; c = c.NextSibling {
+	// 			eventRecur(c)
+	// 		}
+	// 	}
+	// 	eventRecur(l.node)
+	// }
+}
+
+// arr helper funcs for key comps
+
+func indexOf(arr []interface{}, val interface{}) int {
+	for i, item := range arr {
+		if item == val {
+			return i
+		}
+	}
+	return -1
+}
+
+func insertAt(arr []interface{}, index int, val interface{}) []interface{} {
+	tmp := append(arr[:index], val)
+	return append(tmp, arr[index:])
+}
+
+func swap(arr []interface{}, index1, index2 int) []interface{} {
+	tmp := arr[index1]
+	arr[index1] = arr[index2]
+	arr[index2] = tmp
+	return arr
+}
+
+func (l VNIteratorListener) Identifier() string {
 	return l.id
 }
 
@@ -376,7 +518,7 @@ func (b LiveBool) Set(newData interface{}) {
 	rd := b()
 	rd.Data = val
 	rd.Notify()
-	fmt.Println(rd.Listeners)
+	// fmt.Println(rd.Listeners)
 }
 
 func (b LiveBool) Value(l Listener) interface{} {
@@ -457,6 +599,22 @@ func (arr LiveArray) Value(l Listener) interface{} {
 	return rd.Data
 }
 
+func (arr LiveArray) At(l Listener, i int) interface{} {
+	arrV := arr.Value(l)
+	switch arrV.(type) {
+	case []LiveStruct:
+		return arrV.([]LiveStruct)[i]
+	case []string:
+		return arrV.([]string)[i]
+	case []bool:
+		return arrV.([]bool)[i]
+	case []int:
+		return arrV.([]int)[i]
+	default:
+		panic("type not supported")
+	}
+}
+
 func (arr LiveArray) Append(val interface{}) {
 	// arr.Set(append(arr.Value(nil).([]zephyr.LiveStruct), &item2))
 	rd := arr()
@@ -465,28 +623,29 @@ func (arr LiveArray) Append(val interface{}) {
 	case []int:
 		val, ok := val.(int)
 		if !ok {
-			panic("type error")
+			panic("[]int type error")
 		}
 		rd.Data = append(rd.Data.([]int), val)
 	case []string:
 		val, ok := val.(string)
 		if !ok {
-			panic("type error")
+			panic("[]string type error")
 		}
 		rd.Data = append(rd.Data.([]string), val)
 	case []bool:
 		val, ok := val.(bool)
 		if !ok {
-			panic("type error")
+			panic("[]bool type error")
 		}
 		rd.Data = append(rd.Data.([]bool), val)
 	case []LiveStruct:
-		val, ok := val.(LiveStruct)
+		v, ok := val.(LiveStruct)
 		if !ok {
-			panic("type error")
+			panic("[]LiveStruct type error")
 		}
-		rd.Data = append(rd.Data.([]LiveStruct), val)
+		rd.Data = append(rd.Data.([]LiveStruct), v)
 		rd.Notify()
+		fmt.Println(rd.Listeners)
 	}
 }
 

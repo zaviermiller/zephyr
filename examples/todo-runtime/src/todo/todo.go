@@ -21,7 +21,12 @@ func (item *TodoItem) Complete() {
 	item.Notify()
 }
 
-func (item *TodoItem) IsComplete(l *zephyr.VNodeListener) bool {
+func (item *TodoItem) IsComplete(l zephyr.Listener) bool {
 	item.Register(l)
 	return item.Completed
+}
+
+func (item *TodoItem) GetContent(l zephyr.Listener) interface{} {
+	item.Register(l)
+	return item.Content
 }

@@ -8,7 +8,7 @@ package zephyr
 
 import (
 	// TODO: remove
-	"fmt"
+
 	"math/rand" // TODO: rmeove
 	"strconv"
 )
@@ -32,6 +32,7 @@ const (
 	// The following are types that don't follow the Go HTML package. They are
 	// used for conditional and iterative rendering
 	ConditionalNode
+	IterativeNode
 )
 
 // ZephyrAttrs represents the HTML attributes for
@@ -60,7 +61,7 @@ type VNode struct {
 	// DOM_ID is the auto-generated ID that is used to update the node
 	DOM_ID string
 
-	// Content - only used for Text/CommentNodes
+	// Content
 	Content interface{}
 
 	// Attrs stores the attributes for the ZNode
@@ -95,11 +96,14 @@ type VNode struct {
 	ConditionalRenders []ConditionalRender
 	CurrentCondition   int
 	ConditionUpdated   bool
+	Keys               []interface{}
+	key                interface{}
+	IterRender         func(int, interface{}) *VNode
 }
 
 type ConditionalRender struct {
 	Condition interface{}
-	Render    func(Listener) *VNode
+	Render    *VNode
 }
 
 // the js part of this is very very temporary, in fact the whole function is
@@ -139,6 +143,8 @@ func (node *VNode) GetOrCreateListener(lID string) Listener {
 		newListener = VNCalculatorListener{node: node, id: node.DOM_ID + "__calculatorL"}
 	case "conditional":
 		newListener = VNConditionalListener{node: node, id: node.DOM_ID + "__conditionalL"}
+	case "iterator":
+		newListener = VNIteratorListener{node: node, id: node.DOM_ID + "__iteratorL"}
 	default:
 		panic("unknown listener type")
 	}
@@ -168,25 +174,93 @@ func (node *VNode) BindEvent(event string, callback func(e *DOMEvent)) *VNode {
 		panic("that event is not real dawg")
 	}
 	node.events[event] = callback
-	fmt.Println(node, node.events)
 	return node
 }
 
-func RenderIf(condition interface{}, r func(Listener) *VNode) *VNode {
+// CONDITIONAL RENDERING
+
+func RenderIf(condition interface{}, r *VNode) *VNode {
 	// set up listener
 	vnode := &VNode{NodeType: ConditionalNode, Component: false, DOM_ID: GetElID("conditional"), CurrentCondition: 0}
 	vnode.ConditionalRenders = []ConditionalRender{ConditionalRender{Condition: condition, Render: r}}
 	return vnode
 }
-
-func (vnode *VNode) RenderElseIf(condition interface{}, r func(Listener) *VNode) *VNode {
+func (vnode *VNode) RenderElseIf(condition interface{}, r *VNode) *VNode {
 	vnode.ConditionalRenders = append(vnode.ConditionalRenders, ConditionalRender{Condition: condition, Render: r})
 	return vnode
 }
 
-func (vnode *VNode) RenderElse(r func(Listener) *VNode) *VNode {
+func (vnode *VNode) RenderElse(r *VNode) *VNode {
 	vnode.ConditionalRenders = append(vnode.ConditionalRenders, ConditionalRender{Condition: true, Render: r})
 	return vnode
+}
+
+// ITERATIVE RENDERING
+
+func RenderFor(iterator LiveArray, r func(index int, val interface{}) *VNode) *VNode {
+	vnode := &VNode{NodeType: IterativeNode, Component: false, DOM_ID: GetElID("iterator"), Static: false, Content: iterator, IterRender: r}
+	keys := vnode.parseIter()
+	vnode.Keys = keys
+	return vnode
+}
+
+func (vnode *VNode) Key(keyVal interface{}) *VNode {
+	vnode.key = keyVal
+	return vnode
+}
+
+func (node *VNode) getNewKeys() (keys []interface{}) {
+	if node.NodeType != IterativeNode {
+		panic("must be used only on iterativenodes")
+	}
+	iListener := node.GetOrCreateListener("iterator")
+	val := node.Content.(LiveArray).Value(iListener)
+	r := node.IterRender
+	switch val.(type) {
+	case []LiveStruct:
+		for i, v := range val.([]LiveStruct) {
+			c := r(i, v)
+			keys = append(keys, c.key)
+		}
+	}
+	return keys
+}
+
+func (node *VNode) parseIter() (keys []interface{}) {
+	if node.NodeType != IterativeNode {
+		panic("must be used only on iterativenodes")
+	}
+	iListener := node.GetOrCreateListener("iterator")
+	val := node.Content.(LiveArray).Value(iListener)
+	r := node.IterRender
+	switch val.(type) {
+	case []LiveStruct:
+		valArr := val.([]LiveStruct)
+		var prev *VNode
+		for i, v := range valArr {
+			c := r(i, v)
+			if c.Key == nil {
+				panic("iterators must have a key")
+			}
+			keys = append(keys, c.key)
+			if i == 0 {
+				node.FirstChild = c
+				prev = nil
+			}
+			if prev != nil {
+				prev.NextSibling = c
+			}
+			c.PrevSibing = prev
+			// on the heap, oh well, root elements will be stack
+			c.Parent = node
+			c.DOM_ID = node.DOM_ID + "-k[" + c.key.(string) + "]"
+			prev = c
+			node.LastChild = c
+		}
+	default:
+		panic("fuck")
+	}
+	return keys
 }
 
 // Element will create VNodes for the element and all of its children

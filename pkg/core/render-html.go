@@ -76,13 +76,10 @@ func (node *VNode) parseAttrs() (stringAttrs map[string]string, err error) {
 	stringAttrs = map[string]string{}
 	attrListener := node.GetOrCreateListener("attr")
 	for k, v := range node.Attrs {
-		if k == "class" {
-			stringAttrs["class"] = v.(string) + " " + node.DOM_ID
-		}
 		switch v.(type) {
 		case LiveData:
 			stringAttrs[k] = v.(LiveData).string(attrListener)
-		// calculated functions get computed and results parsed
+			// calculated functions get computed and results parsed
 		case func(Listener) interface{}:
 			eval := v.(func(Listener) interface{})(attrListener)
 			// parse result
@@ -99,6 +96,9 @@ func (node *VNode) parseAttrs() (stringAttrs map[string]string, err error) {
 			stringAttrs[k] = v.(string)
 		default:
 			return nil, errors.New("Must either use LiveData, string, or calculated func that returns one of those.")
+		}
+		if k == "class" {
+			stringAttrs[k] += " " + node.DOM_ID
 		}
 	}
 	if _, ok := stringAttrs["class"]; !ok {
@@ -117,7 +117,7 @@ func (node *VNode) parseContent() (parsedContent string, err error) {
 		evaluated := node.Content.(func(Listener) interface{})(contentListener)
 		switch evaluated.(type) {
 		case string:
-			parsedContent = node.Content.(string)
+			parsedContent = evaluated.(string)
 		default:
 			return "", errors.New(node.DOM_ID + " content func return type not supported by render (must be string!): ")
 		}
@@ -137,52 +137,65 @@ func (n *VNode) parseConditional() error {
 		switch condition.(type) {
 		case bool:
 			if condition.(bool) {
-				n.FirstChild = cr.Render(conditionalListener)
+				n.FirstChild = cr.Render
 				n.ConditionUpdated = n.CurrentCondition != i
 				n.CurrentCondition = i
-				return nil
+				goto addClass
 			}
 		case LiveBool:
 			cBool := condition.(LiveBool).Value(conditionalListener).(bool)
 			if cBool {
-				n.FirstChild = cr.Render(conditionalListener)
-				fmt.Println(n.FirstChild)
+				n.FirstChild = cr.Render
+				// fmt.Println(n.FirstChild)
 				n.ConditionUpdated = n.CurrentCondition != i
 				n.CurrentCondition = i
-				return nil
+				goto addClass
 			}
-		case func() interface{}:
-			eval := condition.(func() interface{})()
+		case func(l Listener) interface{}:
+			eval := condition.(func(l Listener) interface{})(conditionalListener)
 			if _, ok := eval.(bool); ok {
 				if eval.(bool) {
-					n.FirstChild = cr.Render(conditionalListener)
+					n.FirstChild = cr.Render
 					n.ConditionUpdated = n.CurrentCondition != i
 					n.CurrentCondition = i
-					return nil
+					goto addClass
 				}
 			}
 		default:
 			return errors.New("conditional must use bool, live bool, or calculated function that returns a bool")
 		}
 	}
+addClass:
+	if val, ok := n.FirstChild.Attrs["class"]; !ok {
+		if n.FirstChild.Attrs == nil {
+			n.FirstChild.Attrs = map[string]interface{}{
+				"class": n.DOM_ID,
+			}
+		} else {
+			n.FirstChild.Attrs["class"] = n.DOM_ID
+		}
+	} else {
+		n.FirstChild.Attrs["class"] = val.(string) + " " + n.DOM_ID
+	}
+	// fmt.Println("here right: ", n.FirstChild.Attrs)
 	return nil
 }
 
 func render1(w writer, n *VNode) error {
-	if !n.Component {
-		attrs, err := n.parseAttrs()
-		if err != nil {
-			return err
-		}
-		n.ParsedAttrs = attrs
-		if n.events != nil {
-			n.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: n.DOM_ID, Data: n.events}
-		}
-	} else {
-		n.ParsedAttrs = map[string]string{
-			"class": n.DOM_ID,
-		}
+	// if !n.Component {
+	attrs, err := n.parseAttrs()
+	if err != nil {
+		return err
 	}
+	n.ParsedAttrs = attrs
+	// if n.events != nil {
+	// 	n.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: n.DOM_ID, Data: n.events}
+	// }
+	// } else {
+	// 	n.ParsedAttrs = map[string]string{
+	// 		"class": "" + n.DOM_ID,
+	// 	}
+	// }
 	// Render non-element nodes; these are the easy cases.
 	switch n.NodeType {
 	case ErrorNode:
@@ -265,18 +278,15 @@ func render1(w writer, n *VNode) error {
 		return err
 	case ConditionalNode:
 		n.parseConditional()
-		if val, ok := n.FirstChild.Attrs["class"]; !ok {
-			if n.FirstChild.Attrs == nil {
-				n.FirstChild.Attrs = map[string]interface{}{
-					"class": n.DOM_ID,
-				}
-			} else {
-				n.FirstChild.Attrs["class"] = n.DOM_ID
-			}
-		} else {
-			n.FirstChild.Attrs["class"] = val.(string) + " " + n.DOM_ID
-		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			if err := render1(w, c); err != nil {
+				return err
+			}
+		}
+		return nil
+	case IterativeNode:
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			// c.Attrs = map[string]interface{}{"class": n.DOM_ID}
 			if err := render1(w, c); err != nil {
 				return err
 			}

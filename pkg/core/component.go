@@ -87,7 +87,7 @@ func (parent *BaseComponent) ChildComponent(c Component, props map[string]interf
 	return base.Node
 }
 
-func (c *BaseComponent) BindProp(propName string, destLocation interface{}) {
+func (c *BaseComponent) BindProp(propName string) interface{} {
 	base := c.getBase()
 	val, ok := base.props[propName]
 	if !ok {
@@ -97,31 +97,25 @@ func (c *BaseComponent) BindProp(propName string, destLocation interface{}) {
 	// type safety!!
 	switch val.(type) {
 	case LiveArray:
-		ptr := (destLocation.(*LiveArray))
-		*ptr = val.(LiveArray)
+		return val
 	case LiveBool:
-		ptr := (destLocation.(*LiveBool))
-		*ptr = val.(LiveBool)
+		return val
 	case LiveString:
-		ptr := (destLocation.(*LiveString))
-		*ptr = val.(LiveString)
+		return val
 	case LiveInt:
-		ptr := (destLocation.(*LiveInt))
-		*ptr = val.(LiveInt)
+		return val
 	case LiveStruct:
-		ptr := (destLocation.(*LiveStruct))
-		*ptr = val.(LiveStruct)
+		return val
 	// TODO
 	case func(Listener) interface{}:
 		evald := val.(func(Listener) interface{})(base.Node.GetOrCreateListener("prop"))
+		return evald
 		// add evald to props for comp later
 		base.props[propName+"Evaluated"] = evald
-		ptr := destLocation.(*interface{})
-		*ptr = evald
 	default:
 		panic("props must be live data or a calculator")
 	}
-
+	return nil
 }
 
 // TODO
@@ -168,6 +162,7 @@ func RenderWrapper(c Component, updateQueue chan DOMUpdate) *VNode {
 	node := c.Render()
 	base.Node = node
 
+	// fixme
 	var recurChanSet func(node *VNode)
 	recurChanSet = func(node *VNode) {
 		if node == nil {
@@ -175,11 +170,13 @@ func RenderWrapper(c Component, updateQueue chan DOMUpdate) *VNode {
 		}
 		node.RenderChan = updateQueue
 		for c := node.FirstChild; c != nil; c = c.NextSibling {
+			if c.NodeType == ConditionalNode {
+				c.parseConditional()
+			}
 			recurChanSet(c)
 		}
 	}
 	recurChanSet(base.Node)
-
 	return node
 }
 

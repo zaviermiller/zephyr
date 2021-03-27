@@ -28,6 +28,9 @@ const (
 	Replace
 	OverwriteInnerHTML
 	AddEventListeners
+	InsertBefore
+	InsertAfter
+	SwapChildren
 )
 
 type DOMUpdate struct {
@@ -88,6 +91,7 @@ func RemoveAttribute(el js.Value, key string) {
 func AddEventListener(el js.Value, eventStr string, eFunc func(e *DOMEvent)) {
 	var jsCallback js.Func
 	jsCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// fmt.Println("event called!")
 		eJS := args[0]
 		event := DOMEvent{Target: eJS.Get("target")}
 		eFunc(&event)

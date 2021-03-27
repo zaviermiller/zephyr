@@ -1,6 +1,8 @@
 package todo_list
 
 import (
+	"github.com/zaviermiller/zephyr/examples/todo-runtime/src/components/todo_list/todo_list_item"
+	"github.com/zaviermiller/zephyr/examples/todo-runtime/src/todo"
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
 )
 
@@ -13,19 +15,18 @@ type TodoListComponent struct {
 }
 
 func (c *TodoListComponent) Init() {
-	c.BindProp("items", &c.listItems)
+	c.listItems = c.BindProp("items").(zephyr.LiveArray)
 
 }
 
 func (c *TodoListComponent) Render() *zephyr.VNode {
 	return zephyr.Element("div", nil, []*zephyr.VNode{
 		// zephyr.DynamicText(zephyr.IndexOfFactory(c.listItems, 0)),
-		zephyr.DynamicText(c.listItems),
-		// c.RenderFor(c.listItems, func(index int, val interface{}) {
-		// 	return c.ChildComponent(todo_list_item.Component, map[string]interface{}{
-		// 		"item": val.(LiveStruct)
-		// })
-		// })
+		zephyr.RenderFor(c.listItems, func(index int, val interface{}) *zephyr.VNode {
+			return c.ChildComponent(todo_list_item.Component, map[string]interface{}{
+				"item": val,
+			}).Key(val.(*todo.TodoItem).Content)
+		}),
 		// c.ChildComponent(todo_list_item.Component, map[string]interface{}{
 		// 	"item":
 		// })
