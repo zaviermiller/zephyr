@@ -229,8 +229,9 @@ func (l VNConditionalListener) Update() {
 		eventRecur = func(node *VNode) {
 			node.RenderChan = l.node.RenderChan
 			if node.events != nil {
+				fmt.Println(node.DOM_ID, node.events)
 				// l.node.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: node.GetDOMSelector(), Data: node.events}
-				l.node.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: node.Parent.GetDOMSelector(), Data: node}
+				l.node.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: node.GetDOMSelector(), Data: node}
 			}
 			for c := node.FirstChild; c != nil; c = c.NextSibling {
 				eventRecur(c)

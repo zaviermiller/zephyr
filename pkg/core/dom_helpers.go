@@ -75,9 +75,12 @@ func SetInnerHTML(el js.Value, content string) {
 }
 
 func ReplaceElement(el js.Value, newEl string) {
-	// parent := el.Get("parentNode")
+	parent := el.Get("parentNode")
 	// tmpEl := js.Global().Get("document").Call("createElement", "div")
-	el.Set("outerHTML", newEl)
+	// el.Set("outerHTML", newEl)
+	cp := el.Call("cloneNode", false)
+	parent.Call("replaceChild", cp, el)
+	cp.Set("outerHTML", newEl)
 	// js.Global().Get("console").Call("dir", tmpEl.Get("firstChild"))
 	// parent.Call("replaceChild", el, tmpEl.Get("firstChild"))
 }
