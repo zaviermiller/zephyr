@@ -8,6 +8,7 @@
 package zephyr
 
 import (
+	"fmt"
 	"syscall/js"
 )
 
@@ -63,6 +64,11 @@ func GetFirstElemWithClass(parent js.Value, class string) js.Value {
 	return el
 }
 
+func GetByQuerySelector(parent js.Value, selector string) js.Value {
+	el := parent.Call("querySelector", selector)
+	return el
+}
+
 func SetInnerHTML(el js.Value, content string) {
 	// fmt.Println("set ^ to ", content)
 	el.Set("innerHTML", content)
@@ -90,8 +96,9 @@ func RemoveAttribute(el js.Value, key string) {
 
 func AddEventListener(el js.Value, eventStr string, eFunc func(e *DOMEvent)) {
 	var jsCallback js.Func
+	js.Global().Get("console").Call("dir", el)
 	jsCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		// fmt.Println("event called!")
+		fmt.Println("event called!")
 		eJS := args[0]
 		event := DOMEvent{Target: eJS.Get("target")}
 		eFunc(&event)

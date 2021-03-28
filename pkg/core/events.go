@@ -13,15 +13,6 @@ type DOMEvent struct {
 	DefaultPrevented bool
 }
 
-func eventRecurSet(node *VNode, q chan DOMUpdate) {
-	// fmt.Println("yo: ", node.FirstChild, node.events)
-	if node.events != nil {
-		q <- DOMUpdate{Operation: AddEventListeners, ElementID: node.DOM_ID, Data: node.events}
-	}
-	for c := node.FirstChild; c != nil; c = c.NextSibling {
-		eventRecurSet(c, q)
-	}
-}
 func (e *DOMEvent) StopPropagation() {
 	e.Bubbles = false
 }

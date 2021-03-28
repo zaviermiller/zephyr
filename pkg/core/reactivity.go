@@ -112,7 +112,7 @@ func (l VNAttrListener) Update() {
 	if err != nil {
 		panic(err.Error())
 	}
-	l.node.RenderChan <- DOMUpdate{Operation: UpdateAttrs, ElementID: l.node.DOM_ID, Data: updatedAttrs}
+	l.node.RenderChan <- DOMUpdate{Operation: UpdateAttrs, ElementID: l.node.GetDOMSelector(), Data: updatedAttrs}
 	// for k, v := range l.node.Attrs {
 	// 	newV, ok := updatedAttrs[k]
 	// 	if !ok {
@@ -157,7 +157,10 @@ func (l VNContentListener) Update() {
 	if err != nil {
 		panic(err.Error())
 	}
-	l.node.Parent.RenderChan <- DOMUpdate{Operation: UpdateContent, ElementID: l.node.Parent.DOM_ID, Data: updatedContent}
+	if updatedContent != l.node.Tag {
+		l.node.Parent.RenderChan <- DOMUpdate{Operation: UpdateContent, ElementID: l.node.Parent.GetDOMSelector(), Data: updatedContent}
+		l.node.Tag = updatedContent
+	}
 }
 
 func (l VNContentListener) Identifier() string {
@@ -214,13 +217,20 @@ func (l VNConditionalListener) Update() {
 	// }
 	l.node.parseConditional()
 	// fmt.Println("fc: ", l.node.FirstChild)
+	fmt.Println(l.node.GetDOMSelector())
 	if l.node.ConditionUpdated {
-		l.node.RenderChan <- DOMUpdate{Operation: UpdateConditional, ElementID: l.node.DOM_ID, Data: l.node.FirstChild}
+		if l.node.FirstChild == nil {
+			l.node.RenderChan <- DOMUpdate{Operation: Delete, ElementID: l.node.GetDOMSelector(), Data: "self"}
+			return
+		}
+		l.node.RenderChan <- DOMUpdate{Operation: UpdateConditional, ElementID: l.node.GetDOMSelector(), Data: l.node.FirstChild}
+		l.node.Tag = l.node.FirstChild.Tag
 		var eventRecur func(*VNode)
 		eventRecur = func(node *VNode) {
 			node.RenderChan = l.node.RenderChan
 			if node.events != nil {
-				l.node.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: node.DOM_ID, Data: node.events}
+				// l.node.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: node.GetDOMSelector(), Data: node.events}
+				l.node.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: node.Parent.GetDOMSelector(), Data: node}
 			}
 			for c := node.FirstChild; c != nil; c = c.NextSibling {
 				eventRecur(c)
@@ -264,7 +274,7 @@ func (l VNIteratorListener) Update() {
 			if oldI := indexOf(keys, val); oldI == -1 {
 				// deleted and replaced
 			} else if oldI != i {
-				l.node.RenderChan <- DOMUpdate{Operation: SwapChildren, ElementID: l.node.Parent.DOM_ID, Data: [2]int{i, oldI}}
+				l.node.RenderChan <- DOMUpdate{Operation: SwapChildren, ElementID: l.node.Parent.GetDOMSelector(), Data: [2]int{i, oldI}}
 				swap(keys, i, oldI)
 			}
 		}
@@ -282,14 +292,23 @@ func (l VNIteratorListener) Update() {
 					keyDiff--
 					keys = insertAt(keys, i, val)
 					newNode := l.node.IterRender(i, l.node.Content.(LiveArray)().Data.([]LiveStruct)[i])
-					newNode.DOM_ID = l.node.DOM_ID + "-k[" + newNode.key.(string) + "]"
+					// newNode.DOM_ID = l.node.DOM_ID + "-k[" + newNode.key.(string) + "]"
+					newNode.DOM_ID = l.node.DOM_ID
+					newNode.Attrs["data-key"] = newNode.key
 					if curr == nil {
 						// appended
 						prev := l.node.LastChild
 						prev.NextSibling = newNode
 						newNode.PrevSibling = prev
 						l.node.LastChild = newNode
-						l.node.RenderChan <- DOMUpdate{Operation: InsertAfter, ElementID: prev.DOM_ID, Data: newNode}
+						i := 0
+						cTest := newNode.PrevSibling
+						for cTest != nil {
+							i++
+							cTest = cTest.PrevSibling
+						}
+
+						l.node.RenderChan <- DOMUpdate{Operation: InsertAfter, ElementID: prev.GetDOMSelector(), Data: newNode}
 					} else {
 						prev := curr.PrevSibling
 						if prev != nil {
@@ -298,7 +317,14 @@ func (l VNIteratorListener) Update() {
 						curr.PrevSibling = newNode
 						newNode.PrevSibling = prev
 						newNode.NextSibling = curr
-						l.node.RenderChan <- DOMUpdate{Operation: InsertBefore, ElementID: curr.DOM_ID, Data: newNode}
+						i := 0
+						cTest := newNode.PrevSibling
+						for cTest != nil {
+							i++
+							cTest = cTest.PrevSibling
+						}
+
+						l.node.RenderChan <- DOMUpdate{Operation: InsertBefore, ElementID: curr.GetDOMSelector(), Data: newNode}
 					}
 					// if curr.NextSibling == nil {
 					// 	l.node.RenderChan <- DOMUpdate{Operation: InsertAfter, ElementID: curr.PrevSibling.DOM_ID, Data: curr}
@@ -307,7 +333,7 @@ func (l VNIteratorListener) Update() {
 				}
 			} else if oldI != i {
 				// swap the elements
-				l.node.RenderChan <- DOMUpdate{Operation: SwapChildren, ElementID: l.node.Parent.DOM_ID, Data: [2]int{i, oldI}}
+				l.node.RenderChan <- DOMUpdate{Operation: SwapChildren, ElementID: l.node.Parent.GetDOMSelector(), Data: [2]int{i, oldI}}
 				swap(keys, i, oldI)
 			}
 			if curr != nil {
@@ -324,13 +350,13 @@ func (l VNIteratorListener) Update() {
 					// replaced
 				} else {
 					// remove the attr
-					l.node.RenderChan <- DOMUpdate{Operation: Delete, ElementID: curr.DOM_ID, Data: "before"}
+					l.node.RenderChan <- DOMUpdate{Operation: Delete, ElementID: curr.GetDOMSelector(), Data: "before"}
 					keys = append(keys[:i], keys[:i+1])
 					keyDiff++
 				}
 			} else if oldI != i {
 				//swap?
-				l.node.RenderChan <- DOMUpdate{Operation: SwapChildren, ElementID: l.node.Parent.DOM_ID, Data: [2]int{i, oldI}}
+				l.node.RenderChan <- DOMUpdate{Operation: SwapChildren, ElementID: l.node.Parent.GetDOMSelector(), Data: [2]int{i, oldI}}
 				swap(keys, i, oldI)
 			}
 		}

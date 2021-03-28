@@ -134,6 +134,7 @@ func (n *VNode) parseConditional() error {
 	conditionalListener := n.GetOrCreateListener("conditional")
 	for i, cr := range n.ConditionalRenders {
 		condition := cr.Condition
+		cr.Render.Parent = n
 		switch condition.(type) {
 		case bool:
 			if condition.(bool) {
@@ -168,6 +169,7 @@ func (n *VNode) parseConditional() error {
 	n.FirstChild = nil
 	n.ConditionUpdated = true
 	n.CurrentCondition = -1
+	n.Tag = ""
 	return nil
 addClass:
 	if _, ok := n.FirstChild.Attrs["class"]; !ok {
@@ -210,6 +212,7 @@ func render1(w writer, n *VNode) error {
 		if err != nil {
 			return err
 		}
+		n.Tag = parsed
 		return escape(w, parsed)
 	case DocumentNode:
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -280,6 +283,7 @@ func render1(w writer, n *VNode) error {
 		return err
 	case ConditionalNode:
 		n.parseConditional()
+		n.Tag = n.FirstChild.Tag
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			if err := render1(w, c); err != nil {
 				return err

@@ -1,8 +1,7 @@
 package zephyr
 
 import (
-	"reflect"
-	"strings"
+	"strconv"
 )
 
 type Component interface {
@@ -34,8 +33,6 @@ type Updater interface {
 type ComputedFunc func() interface{}
 
 type BaseComponent struct {
-	interalID string
-
 	props map[string]interface{}
 	// reactive data - internal use. check reactivity.go
 	data map[LiveData]DataDep
@@ -82,7 +79,7 @@ func (parent *BaseComponent) ChildComponent(c Component, props map[string]interf
 
 	// render component
 	RenderWrapper(c, updateQ)
-	base.Node.Content = c
+	// base.Node.Content = c
 	base.Node.Component = true
 	return base.Node
 }
@@ -161,6 +158,14 @@ func RenderWrapper(c Component, updateQueue chan DOMUpdate) *VNode {
 	base.Node = &VNode{RenderChan: updateQueue}
 	node := c.Render()
 	base.Node = node
+	i := 0
+	cTest := base.Node.PrevSibling
+	for cTest != nil {
+		i++
+		cTest = cTest.PrevSibling
+	}
+
+	base.Node.DOM_ID = "zComponent" + strconv.Itoa(i)
 
 	// fixme
 	var recurChanSet func(node *VNode)
@@ -170,9 +175,9 @@ func RenderWrapper(c Component, updateQueue chan DOMUpdate) *VNode {
 		}
 		node.RenderChan = updateQueue
 		for c := node.FirstChild; c != nil; c = c.NextSibling {
-			if c.NodeType == ConditionalNode {
-				c.parseConditional()
-			}
+			// if c.NodeType == ConditionalNode {
+			// 	c.parseConditional()
+			// }
 			recurChanSet(c)
 		}
 	}
@@ -203,20 +208,23 @@ func UpdateWrapper(c Component) {
 }
 
 func NewComponent(c Component) Component {
-	base := c.getBase()
+	// base := c.getBase()
 
 	// create the id so it can be found again
-	componentId := strings.Split(reflect.TypeOf(c).String(), ".")
-	if len(componentId) != 2 {
-		// fmt.Println(componentId)
-	} else {
-		base.interalID = componentId[1]
-		// base.Listener = ComponentListener{id: base.interalID}
-	}
+	// componentId := strings.Split(reflect.TypeOf(c).String(), ".")
+	// if len(componentId) != 2 {
+	// 	// fmt.Println(componentId)
+	// } else {
+	// 	base.interalID = componentId[1]
+	// base.Listener = ComponentListener{id: base.interalID}
+	// }
 
 	return c
 
 }
+
+// mayhaps
+// func NewComponentWithProps()
 
 // func (c *BaseComponent) RegisterComponents(components []Component) {
 // 	c.components = make(map[string]Component)

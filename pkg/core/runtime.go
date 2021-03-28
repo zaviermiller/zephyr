@@ -85,18 +85,14 @@ func (z *ZephyrApp) Mount(querySelector string) {
 	// Render the DOM and pass in the update channel.
 	z.RootNode = RenderWrapper(z.RootComponent, z.UpdateQueue)
 
+	// initial render
 	z.UpdateQueue <- DOMUpdate{Operation: InitialRender, ElementID: z.RootNode.DOM_ID, Data: z.RootNode}
 	// recursively find and set events
-	var eventRecur func(*VNode)
-	eventRecur = func(node *VNode) {
-		if node.events != nil {
-			z.UpdateQueue <- DOMUpdate{Operation: AddEventListeners, ElementID: node.DOM_ID, Data: node.events}
-		}
-		for c := node.FirstChild; c != nil; c = c.NextSibling {
-			eventRecur(c)
-		}
-	}
-	eventRecur(z.RootNode)
+
+	z.RenderLoop()
+}
+
+func (z *ZephyrApp) RenderLoop() {
 
 	// Start listening for DOM updates
 	for {
@@ -130,18 +126,33 @@ func (z *ZephyrApp) Mount(querySelector string) {
 		switch currentUpdate.Operation {
 		case InitialRender:
 			z.Anchor.Set("innerHTML", renderedHTML)
+			var eventRecur func(*VNode)
+			eventRecur = func(node *VNode) {
+				if node.events != nil {
+					if node.DOM_ID == "" {
+						fmt.Println("ugh: ", node.events, node.GetDOMSelector())
+						z.UpdateQueue <- DOMUpdate{Operation: AddEventListeners, ElementID: node.GetDOMSelector(), Data: node}
+					} else {
+						z.UpdateQueue <- DOMUpdate{Operation: AddEventListeners, ElementID: node.GetDOMSelector(), Data: node}
+					}
+				}
+				for c := node.FirstChild; c != nil; c = c.NextSibling {
+					eventRecur(c)
+				}
+			}
+			eventRecur(currentUpdate.Data.(*VNode))
 		case Insert:
 			parentEl := z.DOMElements[currentUpdate.ElementID]
 			// fmt.Println("insert ", currentUpdate.Data, "at ", currentUpdate.ElementID)
 			parentEl.Call("insertAdjacentHTML", "beforeend", renderedHTML)
 		case InsertBefore:
-			nextSibling := GetFirstElemWithClass(z.Anchor, currentUpdate.ElementID)
+			nextSibling := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 			nextSibling.Call("insertAdjacentHTML", "beforebegin", renderedHTML)
 		case InsertAfter:
-			prevSibling := GetFirstElemWithClass(z.Anchor, currentUpdate.ElementID)
+			prevSibling := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 			prevSibling.Call("insertAdjacentHTML", "afterend", renderedHTML)
 		case Delete:
-			el := GetFirstElemWithClass(z.Anchor, currentUpdate.ElementID)
+			el := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 			switch str := currentUpdate.Data.(string); str {
 			case "before":
 				el.Get("previousSibling").Call("remove")
@@ -158,13 +169,13 @@ func (z *ZephyrApp) Mount(querySelector string) {
 		// 	SetAttribute(el, newAttr.Key, newAttr.Val)
 		// delete(z.QueueProxy, strconv.Itoa(int(currentUpdate.Operation))+"."+currentUpdate.ElementID)
 		case SwapChildren:
-			parentEl := GetFirstElemWithClass(z.Anchor, currentUpdate.ElementID)
+			parentEl := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 			swapEls := currentUpdate.Data.([2]int)
 			children := parentEl.Get("childNodes")
 			c1, c2 := children.Index(swapEls[0]), children.Index(swapEls[1])
 			parentEl.Call("insertBefore", c1, c2)
 		case UpdateAttrs:
-			el := GetFirstElemWithClass(z.Anchor, currentUpdate.ElementID)
+			el := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 			for k, v := range currentUpdate.Data.(map[string]string) {
 				SetAttribute(el, k, v)
 			}
@@ -174,11 +185,11 @@ func (z *ZephyrApp) Mount(querySelector string) {
 			if _, ok := z.DOMNodes[currentUpdate.ElementID]; !ok {
 				// insert node at parent
 				// el := z.Anchor.Call("getElementById", node.Parent.DOM_ID)
-				el := GetFirstElemWithClass(z.Anchor, currentUpdate.ElementID)
+				el := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 				el.Call("insertAdjacentHTML", "beforeend", renderedHTML)
 			}
 			// replace node
-			el := GetFirstElemWithClass(z.Anchor, currentUpdate.ElementID)
+			el := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 			ReplaceElement(el, renderedHTML)
 		case SetAttrs:
 			// SetAttrs data should be map[string]string
@@ -187,12 +198,15 @@ func (z *ZephyrApp) Mount(querySelector string) {
 			// 	// SetAttribute(el, key, val)
 			// }
 		case Replace:
-			el := z.DOMElements[currentUpdate.ElementID]
+			el := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
+
 			ReplaceElement(el, renderedHTML)
 		case AddEventListeners:
+			// fmt.Println(currentUpdate.ElementID)
 			// el := z.DOMElements[currentUpdate.ElementID]
-			el := GetFirstElemWithClass(z.Anchor, currentUpdate.ElementID)
-			for ev, cb := range currentUpdate.Data.(map[string]func(*DOMEvent)) {
+			el := z.Anchor.Call("querySelector", currentUpdate.ElementID)
+			// fmt.Println("gay balls: ", el.Get("classList").Index(0))
+			for ev, cb := range currentUpdate.Data.(*VNode).events {
 				AddEventListener(el, ev, cb)
 			}
 		case RemoveAttr:
@@ -200,7 +214,7 @@ func (z *ZephyrApp) Mount(querySelector string) {
 			// RemoveAttr(el, currentUpdate.Data)
 		case UpdateContent:
 			// fmt.Println("Content updated: ", currentUpdate.ElementID)
-			el := GetFirstElemWithClass(z.Anchor, currentUpdate.ElementID)
+			el := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 			// fmt.Println("updating ", currentUpdate.ElementID)
 			SetInnerHTML(el, renderedHTML)
 			// case OverwriteInnerHTML:
