@@ -217,7 +217,7 @@ func (l VNConditionalListener) Update() {
 	// }
 	l.node.parseConditional()
 	// fmt.Println("fc: ", l.node.FirstChild)
-	fmt.Println(l.node.GetDOMSelector())
+	// fmt.Println(l.node.GetDOMSelector())
 	if l.node.ConditionUpdated {
 		if l.node.FirstChild == nil {
 			l.node.RenderChan <- DOMUpdate{Operation: Delete, ElementID: l.node.GetDOMSelector(), Data: "self"}
@@ -229,7 +229,6 @@ func (l VNConditionalListener) Update() {
 		eventRecur = func(node *VNode) {
 			node.RenderChan = l.node.RenderChan
 			if node.events != nil {
-				fmt.Println(node.DOM_ID, node.events)
 				// l.node.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: node.GetDOMSelector(), Data: node.events}
 				l.node.RenderChan <- DOMUpdate{Operation: AddEventListeners, ElementID: node.GetDOMSelector(), Data: node}
 			}
@@ -263,11 +262,6 @@ func (l VNIteratorListener) Update() {
 	newKeys := l.node.getNewKeys()
 	keys := l.node.Keys
 
-	// var bb bytes.Buffer
-	// RenderHTML(&bb, l.node)
-	// // elId = currentUpdate.Data.(*VNode).DOM_ID
-	// renderedHTML := string(bb.Bytes())
-	// l.node.RenderChan <- DOMUpdate{Operation: RemoveElements, ElementID: l.node.DOM_ID, Data: renderedHTML}
 	switch keyDiff := len(newKeys) - len(keys); {
 	case keyDiff == 0:
 		// check for reorder
@@ -291,11 +285,13 @@ func (l VNIteratorListener) Update() {
 				} else {
 					// element inserted at i
 					keyDiff--
-					keys = insertAt(keys, i, val)
+					// keys = insertAt(keys, i, val)
 					newNode := l.node.IterRender(i, l.node.Content.(LiveArray)().Data.([]LiveStruct)[i])
 					// newNode.DOM_ID = l.node.DOM_ID + "-k[" + newNode.key.(string) + "]"
 					newNode.DOM_ID = l.node.DOM_ID
 					newNode.Attrs["data-key"] = newNode.key
+					newNode.Parent = l.node
+					// if newNode.NodeType == ConditionalNode
 					if curr == nil {
 						// appended
 						prev := l.node.LastChild

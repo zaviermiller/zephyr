@@ -8,7 +8,6 @@
 package zephyr
 
 import (
-	"fmt"
 	"syscall/js"
 )
 
@@ -99,9 +98,9 @@ func RemoveAttribute(el js.Value, key string) {
 
 func AddEventListener(el js.Value, eventStr string, eFunc func(e *DOMEvent)) {
 	var jsCallback js.Func
-	js.Global().Get("console").Call("dir", el)
+	// js.Global().Get("console").Call("dir", el)
 	jsCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		fmt.Println("event called!")
+		// fmt.Println("event called!")
 		eJS := args[0]
 		event := DOMEvent{Target: eJS.Get("target")}
 		eFunc(&event)

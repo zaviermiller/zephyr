@@ -8,16 +8,17 @@ type TodoItem struct {
 	zephyr.LiveStructImpl
 	Completed bool
 	Content   string
+	Position  int
 }
 
-func NewTodoItem(content string) TodoItem {
-	item := TodoItem{Completed: false, Content: content}
+func NewTodoItem(content string, pos int) TodoItem {
+	item := TodoItem{Completed: false, Content: content, Position: pos}
 
 	return item
 }
 
-func (item *TodoItem) Complete() {
-	item.Completed = true
+func (item *TodoItem) ToggleComplete() {
+	item.Completed = !item.Completed
 	item.Notify()
 }
 
@@ -30,3 +31,7 @@ func (item *TodoItem) GetContent(l zephyr.Listener) interface{} {
 	item.Register(l)
 	return item.Content
 }
+
+// func (item *TodoItem) UpdatePosition() interface{} {
+// 	// item.Position =
+// }

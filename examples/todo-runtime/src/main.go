@@ -10,8 +10,6 @@ import (
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
 )
 
-var App = zephyr.NewComponent(&AppComponent{})
-
 type AppComponent struct {
 	zephyr.BaseComponent
 
@@ -29,21 +27,21 @@ func (ac *AppComponent) Init() {
 		&item1,
 	})
 	ac.showField = zephyr.NewLiveBool(false)
-	ac.fieldInput = zephyr.NewLiveString("")
+	ac.fieldInput = zephyr.NewLiveString("make a mess")
 
 	go func() {
 		time.Sleep(1 * time.Second)
 		// ac.showField.Set(true)
-		item2 := todo.NewTodoItem("make a mess")
-		ac.todoItems.Set(append(ac.todoItems.Value(nil).([]zephyr.LiveStruct), &item2))
-		time.Sleep(2 * time.Second)
-		item1.Complete()
+		// item2 := todo.NewTodoItem("make a mess")
+		// ac.todoItems.Set(append(ac.todoItems.Value(nil).([]zephyr.LiveStruct), &item2))
+		ac.AddTodoItem()
+		// time.Sleep(2 * time.Second)
+		// item1.Complete()
 	}()
 }
 
 func (ac *AppComponent) AddTodoItem() {
 	itemContent := ac.fieldInput.Value(nil).(string)
-	// fmt.Println(itemContent)
 	newItem := todo.NewTodoItem(itemContent)
 	// fmt.Println()
 	ac.todoItems.Append((&newItem))
@@ -55,13 +53,13 @@ func (ac *AppComponent) AddTodoItem() {
 
 func (ac *AppComponent) Render() *zephyr.VNode {
 	return zephyr.Element("div", nil, []*zephyr.VNode{
-		ac.ChildComponent(todo_list.Component, map[string]interface{}{"items": ac.todoItems}),
+		ac.ComponentWithProps(&todo_list.TodoListComponent{}, map[string]interface{}{"items": ac.todoItems}),
 		zephyr.RenderIf(func(l zephyr.Listener) interface{} { return !ac.showField.Value(l).(bool) },
 			zephyr.Element("button", nil, []*zephyr.VNode{
 				zephyr.StaticText("New item"),
 			}).BindEvent("click", func(e *zephyr.DOMEvent) { ac.showField.Set(true) }),
 		).RenderElse(zephyr.Element("div", nil, []*zephyr.VNode{
-			zephyr.Element("input", map[string]interface{}{"type": "text", "value": ac.fieldInput().Data.(string)}, nil).BindEvent("input", func(e *zephyr.DOMEvent) {
+			zephyr.Element("input", map[string]interface{}{"type": "text", "value": ac.fieldInput}, nil).BindEvent("input", func(e *zephyr.DOMEvent) {
 				ac.fieldInput.Set(e.Target.Get("value").String())
 			}),
 			zephyr.Element("button", nil, []*zephyr.VNode{
@@ -70,10 +68,13 @@ func (ac *AppComponent) Render() *zephyr.VNode {
 		}),
 		// test.Component.RenderWithProps()
 		),
+		zephyr.Element("p", nil, []*zephyr.VNode{
+			zephyr.DynamicText(ac.todoItems),
+		}),
 	})
 }
 
 func main() {
-	zefr := zephyr.CreateApp(App)
+	zefr := zephyr.CreateApp(&AppComponent{})
 	zefr.Mount("#app")
 }

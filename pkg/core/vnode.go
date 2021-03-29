@@ -134,17 +134,17 @@ func (node *VNode) GetOrCreateListener(lID string) Listener {
 	var newListener Listener
 	switch lID {
 	case "attr":
-		newListener = VNAttrListener{node: node, id: node.DOM_ID + "__attrL"}
+		newListener = VNAttrListener{node: node, id: node.GetDOMSelector() + "__attrL"}
 	case "content":
-		newListener = VNContentListener{node: node, id: node.DOM_ID + "__contentL"}
+		newListener = VNContentListener{node: node, id: node.GetDOMSelector() + "__contentL"}
 	case "prop":
-		newListener = VNPropListener{node: node, id: node.DOM_ID + "__propL"}
+		newListener = VNPropListener{node: node, id: node.GetDOMSelector() + "__propL"}
 	case "calculator":
-		newListener = VNCalculatorListener{node: node, id: node.DOM_ID + "__calculatorL"}
+		newListener = VNCalculatorListener{node: node, id: node.GetDOMSelector() + "__calculatorL"}
 	case "conditional":
-		newListener = VNConditionalListener{node: node, id: node.DOM_ID + "__conditionalL"}
+		newListener = VNConditionalListener{node: node, id: node.GetDOMSelector() + "__conditionalL"}
 	case "iterator":
-		newListener = VNIteratorListener{node: node, id: node.DOM_ID + "__iteratorL"}
+		newListener = VNIteratorListener{node: node, id: node.GetDOMSelector() + "__iteratorL"}
 	default:
 		panic("unknown listener type")
 	}

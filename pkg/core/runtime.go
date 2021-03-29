@@ -94,11 +94,22 @@ func (z *ZephyrApp) Mount(querySelector string) {
 
 func (z *ZephyrApp) RenderLoop() {
 
+	var eventRecur func(*VNode)
+	eventRecur = func(node *VNode) {
+		if node.events != nil {
+			fmt.Println("hol up:", node.events, node.GetDOMSelector())
+			z.UpdateQueue <- DOMUpdate{Operation: AddEventListeners, ElementID: node.GetDOMSelector(), Data: node}
+		}
+		for c := node.FirstChild; c != nil; c = c.NextSibling {
+			eventRecur(c)
+		}
+	}
+
 	// Start listening for DOM updates
 	for {
 		// fmt.Println("waiting for update")
 		currentUpdate := <-z.UpdateQueue
-		fmt.Println("received update: ", currentUpdate)
+		// fmt.Println("received update: ", currentUpdate)
 
 		// find element in map or on page and insert into map
 		// el, ok := z.DOMElements[currentUpdate.ElementID]
@@ -126,20 +137,6 @@ func (z *ZephyrApp) RenderLoop() {
 		switch currentUpdate.Operation {
 		case InitialRender:
 			z.Anchor.Set("innerHTML", renderedHTML)
-			var eventRecur func(*VNode)
-			eventRecur = func(node *VNode) {
-				if node.events != nil {
-					if node.DOM_ID == "" {
-						fmt.Println("ugh: ", node.events, node.GetDOMSelector())
-						z.UpdateQueue <- DOMUpdate{Operation: AddEventListeners, ElementID: node.GetDOMSelector(), Data: node}
-					} else {
-						z.UpdateQueue <- DOMUpdate{Operation: AddEventListeners, ElementID: node.GetDOMSelector(), Data: node}
-					}
-				}
-				for c := node.FirstChild; c != nil; c = c.NextSibling {
-					eventRecur(c)
-				}
-			}
 			eventRecur(currentUpdate.Data.(*VNode))
 		case Insert:
 			parentEl := z.DOMElements[currentUpdate.ElementID]
@@ -148,9 +145,11 @@ func (z *ZephyrApp) RenderLoop() {
 		case InsertBefore:
 			nextSibling := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 			nextSibling.Call("insertAdjacentHTML", "beforebegin", renderedHTML)
+			eventRecur(currentUpdate.Data.(*VNode))
 		case InsertAfter:
 			prevSibling := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 			prevSibling.Call("insertAdjacentHTML", "afterend", renderedHTML)
+			eventRecur(currentUpdate.Data.(*VNode))
 		case Delete:
 			el := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
 			switch str := currentUpdate.Data.(string); str {
@@ -199,13 +198,12 @@ func (z *ZephyrApp) RenderLoop() {
 			// }
 		case Replace:
 			el := GetByQuerySelector(z.Anchor, currentUpdate.ElementID)
-
 			ReplaceElement(el, renderedHTML)
+			eventRecur(currentUpdate.Data.(*VNode))
 		case AddEventListeners:
-			// fmt.Println(currentUpdate.ElementID)
 			// el := z.DOMElements[currentUpdate.ElementID]
 			el := z.Anchor.Call("querySelector", currentUpdate.ElementID)
-			// fmt.Println("gay balls: ", el.Get("classList").Index(0))
+			// js.Global().Get("console").Call("dir", el)
 			for ev, cb := range currentUpdate.Data.(*VNode).events {
 				AddEventListener(el, ev, cb)
 			}

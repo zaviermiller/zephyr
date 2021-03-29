@@ -6,8 +6,6 @@ import (
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
 )
 
-var Component = zephyr.NewComponent(&TodoListComponent{})
-
 type TodoListComponent struct {
 	zephyr.BaseComponent
 
@@ -23,7 +21,7 @@ func (c *TodoListComponent) Render() *zephyr.VNode {
 	return zephyr.Element("div", nil, []*zephyr.VNode{
 		// zephyr.DynamicText(zephyr.IndexOfFactory(c.listItems, 0)),
 		zephyr.RenderFor(c.listItems, func(index int, val interface{}) *zephyr.VNode {
-			return c.ChildComponent(todo_list_item.Component, map[string]interface{}{
+			return c.ComponentWithProps(&todo_list_item.TodoListItemComponent{}, map[string]interface{}{
 				"item": val,
 			}).Key(val.(*todo.TodoItem).Content)
 		}),

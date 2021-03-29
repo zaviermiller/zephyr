@@ -1,11 +1,11 @@
 package todo_list_item
 
 import (
+	"fmt"
+
 	"github.com/zaviermiller/zephyr/examples/todo-runtime/src/todo"
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
 )
-
-var Component = zephyr.NewComponent(&TodoListItemComponent{})
 
 type TodoListItemComponent struct {
 	zephyr.BaseComponent
@@ -21,7 +21,8 @@ func (c *TodoListItemComponent) Init() {
 func (c *TodoListItemComponent) Render() *zephyr.VNode {
 	return zephyr.Element("div", map[string]interface{}{"style": "margin-bottom: 10px;"}, []*zephyr.VNode{
 		zephyr.RenderIf(func(l zephyr.Listener) interface{} {
-			// fmt.Println("todo: ", c.todoItem, c.todoItem.IsComplete(l))
+			// fmt.Println("todo: ", c.todoItem)
+			fmt.Println(fmt.Sprintf("bruhhh %+v ", c.todoItem))
 			return !c.todoItem.IsComplete(l).(bool)
 		},
 			zephyr.Element("button", map[string]interface{}{

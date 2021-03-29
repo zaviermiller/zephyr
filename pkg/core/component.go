@@ -35,7 +35,7 @@ type ComputedFunc func() interface{}
 type BaseComponent struct {
 	props map[string]interface{}
 	// reactive data - internal use. check reactivity.go
-	data map[LiveData]DataDep
+	// data map[LiveData]DataDep
 	// methods map[string]interface{}
 	// components map[string]Component
 
@@ -64,23 +64,35 @@ type BaseComponent struct {
 }
 
 // ChildComponent calls the render func of a child component
-func (parent *BaseComponent) ChildComponent(c Component, props map[string]interface{}) *VNode {
+func (parent *BaseComponent) Component(c Component) *VNode {
 	// set context based on parent
 	updateQ := parent.Node.RenderChan
 	base := c.getBase()
-
-	// parse and pass props
-	base.props = props
-	// if base.props == nil {
-	// 	base.props = make(map[string]interface{})
-	// }
-	// initialize component
 	InitWrapper(c)
 
 	// render component
 	RenderWrapper(c, updateQ)
 	// base.Node.Content = c
 	base.Node.Component = true
+	base.parentComponent = parent
+	return base.Node
+}
+
+// ChildComponent calls the render func of a child component
+func (parent *BaseComponent) ComponentWithProps(c Component, props map[string]interface{}) *VNode {
+	// set context based on parent
+	updateQ := parent.Node.RenderChan
+	base := c.getBase()
+
+	// parse and pass props
+	base.props = props
+	InitWrapper(c)
+
+	// render component
+	RenderWrapper(c, updateQ)
+	// base.Node.Content = c
+	base.Node.Component = true
+	base.parentComponent = parent
 	return base.Node
 }
 
@@ -205,22 +217,6 @@ func RenderWrapper(c Component, updateQueue chan DOMUpdate) *VNode {
 
 func UpdateWrapper(c Component) {
 	//
-}
-
-func NewComponent(c Component) Component {
-	// base := c.getBase()
-
-	// create the id so it can be found again
-	// componentId := strings.Split(reflect.TypeOf(c).String(), ".")
-	// if len(componentId) != 2 {
-	// 	// fmt.Println(componentId)
-	// } else {
-	// 	base.interalID = componentId[1]
-	// base.Listener = ComponentListener{id: base.interalID}
-	// }
-
-	return c
-
 }
 
 // mayhaps
