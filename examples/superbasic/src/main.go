@@ -1,21 +1,58 @@
+// +build js,wasm
+
 package main
 
 import (
+	"time"
+
+	"github.com/zaviermiller/zephyr/examples/superbasic/src/components/test"
 	zephyr "github.com/zaviermiller/zephyr/pkg/core"
-	"github.com/zaviermiller/zephyr/pkg/runtime"
 )
 
-// entry-point for Zephyr apps
+var App = zephyr.NewComponent(&AppComponent{})
+
+type AppData struct {
+	stringTest zephyr.LiveData
+}
+
+type AppComponent struct {
+	zephyr.BaseComponent
+	AppData
+}
+
+func (ac *AppComponent) Init() {
+
+	ac.stringTest = ac.NewLiveString("initial value")
+
+	go func() {
+		for {
+			ac.UpdateStr(ac.stringTest.Value(nil).(string) + "z")
+			time.Sleep(5 * time.Millisecond)
+		}
+	}()
+}
+
+func (ac *AppComponent) StrLength(l *zephyr.VNodeListener) interface{} {
+	str, _ := ac.stringTest.Value(l).(string)
+	// fmt.Println(len(str))
+	return len(str)
+}
+
+func (ac *AppComponent) UpdateStr(newStr string) {
+	ac.stringTest.Set(newStr)
+}
+
+func (ac *AppComponent) Render() *zephyr.VNode {
+	return zephyr.Element("div", nil, []*zephyr.VNode{
+		zephyr.Element("h1", nil, []*zephyr.VNode{
+			zephyr.DynamicText(ac.StrLength),
+		}),
+		ac.ChildComponent(test.Component, map[string]interface{}{"prop": ac.stringTest}),
+		// test.Component.RenderWithProps()
+	})
+}
+
 func main() {
-	// ideally we wouldnt need to initialize a variable here, but there is not other way :(
-	Root := zephyr.NewComponent(&RootComponent{&zephyr.BaseComponent{}, nil})
-	zefr := runtime.InitApp(Root) // initialize plugins here??
-
-	// mount the zephyr app to an element on an HTML doc
+	zefr := zephyr.CreateApp(App)
 	zefr.Mount("#app")
-
-	// DO NOT EDIT/REMOVE - This line prevents the WASM binary from terminating
-	done := make(chan struct{}, 0)
-	<-done
-
 }
